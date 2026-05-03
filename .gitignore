@@ -1,12 +1,31 @@
+# LocalForge
+config.json
+.agent/
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.env
-config.json
-.agent/
+*.pyd
+.Python
 *.egg-info/
 dist/
 build/
 .venv/
 venv/
-.vscode
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+.next/
