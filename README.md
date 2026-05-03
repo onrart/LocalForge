@@ -66,28 +66,66 @@ streamlit run app.py
 
 ```
 LocalForge/
-├── app.py                  # Streamlit giriş noktası
-├── setup.py                # Otomatik kurulum
-├── requirements.txt
+├── app.py                        # Streamlit giriş noktası
+├── setup.py                      # Otomatik kurulum (bağımlılık + klasör)
+├── requirements.txt              # Python bağımlılıkları
+├── config.json                   # Kullanıcı tercihleri (gitignore'da)
 │
 ├── core/
-│   ├── system_scanner.py       # Donanım tespiti
-│   ├── llm_recommender.py      # Model önerileri
-│   ├── llm_client.py           # Ollama / LM Studio istemcisi
-│   ├── context_manager.py      # MD tabanlı bağlam yönetimi
-│   ├── syntax_validator.py     # Kod doğrulama
-│   ├── dependency_scanner.py   # Import tarayıcı
-│   ├── checkpoint_manager.py   # Snapshot sistemi
-│   └── file_writer.py          # Kod yazıcı
+│   ├── system_scanner.py         # GPU/RAM/OS tespiti, backend ping
+│   ├── llm_recommender.py        # VRAM'e göre model önerisi
+│   ├── llm_client.py             # Ollama / LM Studio API sarmalayıcısı
+│   ├── context_manager.py        # .agent/ MD dosyaları, checkpoint, memory
+│   ├── requirements_collector.py # Proje istemi formu ve şablon tespiti
+│   ├── syntax_validator.py       # Python/JS/TS/JSON doğrulama + fix prompt
+│   ├── dependency_scanner.py     # Import tarayıcı → requirements.txt
+│   ├── file_writer.py            # Atomic yazma, diff üretimi, LLM parse
+│   └── template_manager.py       # Şablon uygulama ve placeholder doldurma
 │
 ├── agents/
-│   ├── planner_agent.py        # Mimari + görev listesi üretir
-│   ├── coder_agent.py          # Dosya dosya kod yazar
-│   └── editor_agent.py         # Düzenleme & refactor
+│   ├── planner_agent.py          # ARCHITECTURE.md + TASKS.md üretir
+│   ├── coder_agent.py            # Görev döngüsü, retry, onay modu
+│   └── editor_agent.py           # Hedefli düzenleme, diff, MEMORY sync
 │
-├── prompts/                    # LLM sistem promptları
-├── templates/                  # Opsiyonel proje iskeletleri
-└── ui/                         # Streamlit sayfa bileşenleri
+├── prompts/
+│   ├── planner.md                # Planlayıcı sistem promptu
+│   ├── coder.md                  # Kodlayıcı sistem promptu
+│   └── editor.md                 # Düzenleyici sistem promptu
+│
+├── templates/
+│   ├── _registry.json            # Stack → şablon eşleştirme
+│   ├── fastapi/                  # FastAPI + SQLAlchemy + Pydantic iskeleti
+│   │   ├── main.py
+│   │   ├── requirements.txt
+│   │   └── src/
+│   │       ├── config.py
+│   │       └── database.py
+│   ├── react/                    # React + Vite + TypeScript iskeleti
+│   │   ├── package.json
+│   │   ├── vite.config.ts
+│   │   ├── index.html
+│   │   └── src/
+│   │       ├── main.tsx
+│   │       └── App.tsx
+│   ├── nextjs/                   # Next.js 14 + App Router iskeleti
+│   │   ├── package.json
+│   │   ├── next.config.ts
+│   │   └── app/
+│   │       ├── layout.tsx
+│   │       └── page.tsx
+│   └── cli/                      # Python CLI + Click + Rich iskeleti
+│       ├── main.py
+│       ├── requirements.txt
+│       └── src/
+│           ├── cli.py
+│           └── config.py
+│
+└── ui/
+    └── pages/
+        ├── 1_setup.py            # Sistem tarama + model seçimi
+        ├── 2_requirements.py     # Proje istemi + planlama
+        ├── 3_workspace.py        # Kodlama + canlı takip + checkpoint
+        └── 4_editor.py           # LLM ile düzenleme + direkt edit
 ```
 
 ---
@@ -109,10 +147,10 @@ Bu sayede 7B bir model bile bağlamı kaybetmeden büyük projeler üretebilir.
 ## 🗺️ Yol Haritası
 
 - [x] Faz 1 — Sistem tarayıcı, LLM istemcisi, bağlam yöneticisi
-- [ ] Faz 2 — İstem toplayıcı, planlama ajanı, prompt şablonları
-- [ ] Faz 3 — Syntax doğrulama, bağımlılık tespiti, checkpoint sistemi
-- [ ] Faz 4 — Streamlit Web UI
-- [ ] Faz 5 — Proje şablon sistemi
+- [x] Faz 2 — İstem toplayıcı, planlama ajanı, prompt şablonları
+- [x] Faz 3 — Syntax doğrulama, bağımlılık tespiti, coder & editor ajanı
+- [x] Faz 4 — Streamlit Web UI (4 sayfa)
+- [x] Faz 5 — Proje şablon sistemi (FastAPI, React, Next.js, CLI)
 - [ ] Faz 6 — GitHub Actions, demo, dokümantasyon
 
 ---

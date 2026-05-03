@@ -8,20 +8,14 @@ import streamlit as st
 from pathlib import Path
 
 import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.system_scanner import (
-    scan,
-    get_installed_ollama_models,
-    get_installed_lmstudio_models,
-)
+from core.system_scanner import scan, get_installed_ollama_models, get_installed_lmstudio_models
 from core.llm_recommender import recommend
 
 st.set_page_config(page_title="Kurulum — LocalForge", page_icon="🖥️", layout="wide")
 
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.json"
-
 
 def load_config() -> dict:
     if CONFIG_PATH.exists():
@@ -35,13 +29,9 @@ def load_config() -> dict:
         "approval_mode": False,
     }
 
-
 def save_config(cfg: dict):
-    CONFIG_PATH.write_text(
-        json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
     st.session_state.config = cfg
-
 
 # ─── Başlık ───
 st.markdown("# 🖥️ Kurulum")
@@ -138,13 +128,9 @@ if st.session_state.get("system_info"):
     # Kurulu modelleri al
     installed_models = []
     if backend == "ollama" and info.ollama_available:
-        installed_models = get_installed_ollama_models(
-            cfg.get("ollama_url", "http://localhost:11434")
-        )
+        installed_models = get_installed_ollama_models(cfg.get("ollama_url", "http://localhost:11434"))
     elif backend == "lmstudio" and info.lmstudio_available:
-        installed_models = get_installed_lmstudio_models(
-            cfg.get("lmstudio_url", "http://localhost:1234")
-        )
+        installed_models = get_installed_lmstudio_models(cfg.get("lmstudio_url", "http://localhost:1234"))
 
     col1, col2 = st.columns(2)
 
@@ -158,18 +144,12 @@ if st.session_state.get("system_info"):
             label = f"{'⭐ ' if m.is_best else ''}{m.display_name}"
             if m.name in installed_models:
                 label += " ✅"
-            label += (
-                f" ({m.vram_required_gb}GB)" if m.vram_required_gb > 0 else " (CPU)"
-            )
+            label += f" ({m.vram_required_gb}GB)" if m.vram_required_gb > 0 else " (CPU)"
             planner_labels.append(label)
 
         # Mevcut seçimi bul
         current_planner = cfg.get("planner_model", "")
-        planner_idx = (
-            planner_options.index(current_planner)
-            if current_planner in planner_options
-            else 0
-        )
+        planner_idx = planner_options.index(current_planner) if current_planner in planner_options else 0
 
         selected_planner_idx = st.radio(
             "Planlama modeli seç",
@@ -182,20 +162,12 @@ if st.session_state.get("system_info"):
         # Manuel model girişi
         custom_planner = st.text_input(
             "Veya manuel model adı gir",
-            value=(
-                ""
-                if planner_options[selected_planner_idx] == current_planner
-                else current_planner
-            ),
+            value="" if planner_options[selected_planner_idx] == current_planner else current_planner,
             placeholder="örn: llama3.2:latest",
             key="custom_planner",
         )
 
-        final_planner = (
-            custom_planner.strip()
-            if custom_planner.strip()
-            else planner_options[selected_planner_idx]
-        )
+        final_planner = custom_planner.strip() if custom_planner.strip() else planner_options[selected_planner_idx]
         st.caption(f"Seçili: `{final_planner}`")
         cfg["planner_model"] = final_planner
 
@@ -209,15 +181,11 @@ if st.session_state.get("system_info"):
             label = f"{'⭐ ' if m.is_best else ''}{m.display_name}"
             if m.name in installed_models:
                 label += " ✅"
-            label += (
-                f" ({m.vram_required_gb}GB)" if m.vram_required_gb > 0 else " (CPU)"
-            )
+            label += f" ({m.vram_required_gb}GB)" if m.vram_required_gb > 0 else " (CPU)"
             coder_labels.append(label)
 
         current_coder = cfg.get("coder_model", "")
-        coder_idx = (
-            coder_options.index(current_coder) if current_coder in coder_options else 0
-        )
+        coder_idx = coder_options.index(current_coder) if current_coder in coder_options else 0
 
         selected_coder_idx = st.radio(
             "Kodlama modeli seç",
@@ -229,20 +197,12 @@ if st.session_state.get("system_info"):
 
         custom_coder = st.text_input(
             "Veya manuel model adı gir",
-            value=(
-                ""
-                if coder_options[selected_coder_idx] == current_coder
-                else current_coder
-            ),
+            value="" if coder_options[selected_coder_idx] == current_coder else current_coder,
             placeholder="örn: qwen2.5-coder:7b",
             key="custom_coder",
         )
 
-        final_coder = (
-            custom_coder.strip()
-            if custom_coder.strip()
-            else coder_options[selected_coder_idx]
-        )
+        final_coder = custom_coder.strip() if custom_coder.strip() else coder_options[selected_coder_idx]
         st.caption(f"Seçili: `{final_coder}`")
         cfg["coder_model"] = final_coder
 
@@ -257,9 +217,7 @@ if st.session_state.get("system_info"):
     )
     cfg["approval_mode"] = approval_mode
     if approval_mode:
-        st.info(
-            "✋ Her görev tamamlandığında üretilen dosyalar gösterilir → Onayla / Düzenle / Atla"
-        )
+        st.info("✋ Her görev tamamlandığında üretilen dosyalar gösterilir → Onayla / Düzenle / Atla")
     else:
         st.info("🤖 Ajan görevleri sırayla otomatik tamamlar, müdahale gerektirmez")
 

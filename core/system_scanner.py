@@ -20,7 +20,7 @@ class SystemInfo:
     ram_gb: float
     gpu_name: str
     vram_gb: float
-    gpu_vendor: str  # "nvidia" | "amd" | "apple" | "none"
+    gpu_vendor: str          # "nvidia" | "amd" | "apple" | "none"
     ollama_available: bool
     ollama_version: str
     lmstudio_available: bool
@@ -35,14 +35,9 @@ def _detect_nvidia_gpu() -> tuple[str, float]:
     """nvidia-smi ile GPU adı ve VRAM döner. (name, vram_gb)"""
     try:
         result = subprocess.run(
-            [
-                "nvidia-smi",
-                "--query-gpu=name,memory.total",
-                "--format=csv,noheader,nounits",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=5,
+            ["nvidia-smi", "--query-gpu=name,memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
             line = result.stdout.strip().split("\n")[0]
@@ -59,7 +54,8 @@ def _detect_amd_gpu() -> tuple[str, float]:
     """rocm-smi ile AMD GPU bilgisi. (name, vram_gb)"""
     try:
         result = subprocess.run(
-            ["rocm-smi", "--showproductname"], capture_output=True, text=True, timeout=5
+            ["rocm-smi", "--showproductname"],
+            capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0 and result.stdout.strip():
             for line in result.stdout.splitlines():
@@ -76,7 +72,7 @@ def _detect_apple_gpu() -> tuple[str, float]:
     if platform.system() == "Darwin" and platform.processor() == "arm":
         cpu = platform.machine()
         # Unified memory paylaşımlı — toplam RAM'in yarısı GPU için kabul edilir
-        ram_gb = psutil.virtual_memory().total / (1024**3)
+        ram_gb = psutil.virtual_memory().total / (1024 ** 3)
         return f"Apple Silicon ({cpu})", round(ram_gb / 2, 1)
     return "", 0.0
 
@@ -93,7 +89,8 @@ def _check_ollama(url: str) -> tuple[bool, str]:
     # CLI fallback
     try:
         result = subprocess.run(
-            ["ollama", "--version"], capture_output=True, text=True, timeout=3
+            ["ollama", "--version"],
+            capture_output=True, text=True, timeout=3
         )
         if result.returncode == 0:
             return True, result.stdout.strip()
@@ -113,7 +110,7 @@ def _check_lmstudio(url: str) -> bool:
 
 def scan(
     ollama_url: str = "http://localhost:11434",
-    lmstudio_url: str = "http://localhost:1234",
+    lmstudio_url: str = "http://localhost:1234"
 ) -> SystemInfo:
     """
     Tam sistem taraması yapar ve SystemInfo döner.
@@ -125,7 +122,7 @@ def scan(
     cpu_cores = psutil.cpu_count(logical=False) or psutil.cpu_count()
 
     # RAM
-    ram_gb = round(psutil.virtual_memory().total / (1024**3), 1)
+    ram_gb = round(psutil.virtual_memory().total / (1024 ** 3), 1)
 
     # GPU tespiti (öncelik sırası: NVIDIA → AMD → Apple → Yok)
     gpu_name, vram_gb, gpu_vendor = "", 0.0, "none"

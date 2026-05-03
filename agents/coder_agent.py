@@ -14,6 +14,7 @@ from core.syntax_validator import validate, build_fix_prompt
 from core.dependency_scanner import scan_and_update
 from core.file_writer import parse_llm_output, write_files, WriteSession
 
+
 MAX_SYNTAX_RETRIES = 2
 
 
@@ -91,11 +92,7 @@ class CoderAgent:
         total = len(pending)
 
         if total == 0:
-            yield {
-                "type": "session_done",
-                "task": "",
-                "data": {"message": "Tüm görevler zaten tamamlanmış."},
-            }
+            yield {"type": "session_done", "task": "", "data": {"message": "Tüm görevler zaten tamamlanmış."}}
             return
 
         yield {"type": "session_start", "task": "", "data": {"total": total}}
@@ -105,11 +102,7 @@ class CoderAgent:
                 yield {"type": "stopped", "task": task_name, "data": {}}
                 break
 
-            yield {
-                "type": "task_start",
-                "task": task_name,
-                "data": {"index": i + 1, "total": total},
-            }
+            yield {"type": "task_start", "task": task_name, "data": {"index": i + 1, "total": total}}
 
             # CURRENT_TASK.md güncelle
             task_details = self._build_task_details(task_name)
@@ -119,40 +112,24 @@ class CoderAgent:
             result = yield from self._run_task_with_retry(task_name)
 
             if not result.success:
-                yield {
-                    "type": "error",
-                    "task": task_name,
-                    "data": {"error": result.error},
-                }
+                yield {"type": "error", "task": task_name, "data": {"error": result.error}}
                 if self.approval_mode:
-                    yield {
-                        "type": "approval_needed",
-                        "task": task_name,
-                        "data": {
-                            "action": "error_skip",
-                            "message": f"Görev başarısız: {result.error}. Devam edilsin mi?",
-                        },
-                    }
+                    yield {"type": "approval_needed", "task": task_name, "data": {
+                        "action": "error_skip",
+                        "message": f"Görev başarısız: {result.error}. Devam edilsin mi?"
+                    }}
                 continue
 
             # Onay modu
             if self.approval_mode:
-                yield {
-                    "type": "approval_needed",
-                    "task": task_name,
-                    "data": {
-                        "action": "approve_task",
-                        "files": result.files_written,
-                        "deps": result.deps_added,
-                        "skipped": result.skipped_files,
-                    },
-                }
+                yield {"type": "approval_needed", "task": task_name, "data": {
+                    "action": "approve_task",
+                    "files": result.files_written,
+                    "deps": result.deps_added,
+                    "skipped": result.skipped_files,
+                }}
                 # UI onay verinceye kadar bekler — generator dışarıdan .send() ile devam ettirilir
-                approval = yield {
-                    "type": "waiting_approval",
-                    "task": task_name,
-                    "data": {},
-                }
+                approval = yield {"type": "waiting_approval", "task": task_name, "data": {}}
                 if approval == "skip":
                     yield {"type": "task_skipped", "task": task_name, "data": {}}
                     continue
@@ -170,24 +147,16 @@ class CoderAgent:
             # PROGRESS.md güncelle
             self.ctx.append_to_progress(task_name, result.files_written)
 
-            yield {
-                "type": "task_done",
-                "task": task_name,
-                "data": {
-                    "files": result.files_written,
-                    "deps": result.deps_added,
-                    "skipped": result.skipped_files,
-                    "retries": result.syntax_retries,
-                },
-            }
+            yield {"type": "task_done", "task": task_name, "data": {
+                "files": result.files_written,
+                "deps": result.deps_added,
+                "skipped": result.skipped_files,
+                "retries": result.syntax_retries,
+            }}
 
-        yield {
-            "type": "session_done",
-            "task": "",
-            "data": {
-                "completed": len(pending),
-            },
-        }
+        yield {"type": "session_done", "task": "", "data": {
+            "completed": len(pending),
+        }}
 
     def _run_task_with_retry(self, task_name: str) -> Generator[dict, None, TaskResult]:
         """
@@ -230,46 +199,28 @@ class CoderAgent:
                 if not result.valid:
                     has_error = True
                     error_hints.append(result.fix_hint)
-                    yield {
-                        "type": "syntax_error",
-                        "task": task_name,
-                        "data": {
-                            "file": pf.path,
-                            "error": result.error,
-                            "attempt": attempt + 1,
-                        },
-                    }
+                    yield {"type": "syntax_error", "task": task_name, "data": {
+                        "file": pf.path,
+                        "error": result.error,
+                        "attempt": attempt + 1,
+                    }}
 
             if has_error and attempt < MAX_SYNTAX_RETRIES:
                 syntax_retries += 1
-                fix_prompt = build_fix_prompt(
-                    user_message,
-                    full_response,
-                    type("R", (), {"fix_hint": "\n".join(error_hints)})(),
-                )
+                fix_prompt = build_fix_prompt(user_message, full_response, type('R', (), {'fix_hint': '\n'.join(error_hints)})())
                 user_message = fix_prompt
-                yield {
-                    "type": "retry",
-                    "task": task_name,
-                    "data": {"attempt": attempt + 2},
-                }
+                yield {"type": "retry", "task": task_name, "data": {"attempt": attempt + 2}}
                 continue
 
             if has_error:
                 # Max retry aşıldı → kullanıcıya devret
-                yield {
-                    "type": "syntax_failed",
-                    "task": task_name,
-                    "data": {
-                        "message": "Syntax hatası düzeltilemedi. Manuel müdahale gerekiyor."
-                    },
-                }
+                yield {"type": "syntax_failed", "task": task_name, "data": {
+                    "message": "Syntax hatası düzeltilemedi. Manuel müdahale gerekiyor."
+                }}
 
             # Dosyaları yaz
             manually_edited = self.ctx.get_manually_edited_files()
-            session: WriteSession = write_files(
-                parsed_files, self.project_path, manually_edited
-            )
+            session: WriteSession = write_files(parsed_files, self.project_path, manually_edited)
 
             # Bağımlılık tara
             all_deps_added = []
@@ -282,7 +233,7 @@ class CoderAgent:
             if all_deps_added:
                 self.ctx.append_to_memory(
                     "Mimari Kararlar",
-                    f"{task_name} görevi → requirements.txt'e eklendi: {', '.join(all_deps_added)}",
+                    f"{task_name} görevi → requirements.txt'e eklendi: {', '.join(all_deps_added)}"
                 )
 
             return TaskResult(
@@ -308,9 +259,7 @@ class CoderAgent:
         total = len(all_tasks)
 
         completed = [t["name"] for t in all_tasks if t["done"]]
-        completed_str = (
-            "\n".join(f"- ✅ {t}" for t in completed) if completed else "- Henüz yok"
-        )
+        completed_str = "\n".join(f"- ✅ {t}" for t in completed) if completed else "- Henüz yok"
 
         return f"""### Sıra: {index + 1} / {total}
 

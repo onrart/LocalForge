@@ -26,7 +26,7 @@ class LLMClient:
 
     def __init__(
         self,
-        backend: str,  # "ollama" | "lmstudio"
+        backend: str,           # "ollama" | "lmstudio"
         model: str,
         base_url: str,
     ):
@@ -54,13 +54,20 @@ class LLMClient:
 
         for attempt in range(1, self.MAX_RETRIES + 1):
             try:
-                resp = requests.post(self._endpoint, json=payload, timeout=120)
+                resp = requests.post(
+                    self._endpoint,
+                    json=payload,
+                    timeout=120
+                )
                 resp.raise_for_status()
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
                 tokens = data.get("usage", {}).get("total_tokens", 0)
                 return LLMResponse(
-                    content=content, model=self.model, total_tokens=tokens, success=True
+                    content=content,
+                    model=self.model,
+                    total_tokens=tokens,
+                    success=True
                 )
             except requests.exceptions.ConnectionError:
                 error = f"Bağlantı hatası ({self.backend} çalışıyor mu?)"
@@ -75,7 +82,11 @@ class LLMClient:
                 time.sleep(self.RETRY_DELAY)
 
         return LLMResponse(
-            content="", model=self.model, total_tokens=0, success=False, error=error
+            content="",
+            model=self.model,
+            total_tokens=0,
+            success=False,
+            error=error
         )
 
     def stream(
@@ -94,7 +105,10 @@ class LLMClient:
 
         try:
             with requests.post(
-                self._endpoint, json=payload, stream=True, timeout=120
+                self._endpoint,
+                json=payload,
+                stream=True,
+                timeout=120
             ) as resp:
                 resp.raise_for_status()
                 for line in resp.iter_lines():
@@ -124,9 +138,13 @@ class LLMClient:
         """Backend'in ayakta olup olmadığını kontrol eder."""
         try:
             if self.backend == "ollama":
-                resp = requests.get(f"{self.base_url}/api/version", timeout=3)
+                resp = requests.get(
+                    f"{self.base_url}/api/version", timeout=3
+                )
             else:
-                resp = requests.get(f"{self.base_url}/v1/models", timeout=3)
+                resp = requests.get(
+                    f"{self.base_url}/v1/models", timeout=3
+                )
             return resp.status_code == 200
         except Exception:
             return False
@@ -158,7 +176,11 @@ class LLMClient:
         return messages
 
     def _build_payload(
-        self, messages: list, max_tokens: int, temperature: float, stream: bool
+        self,
+        messages: list,
+        max_tokens: int,
+        temperature: float,
+        stream: bool
     ) -> dict:
         return {
             "model": self.model,
@@ -172,7 +194,6 @@ class LLMClient:
 # ─────────────────────────────────────────
 # Factory
 # ─────────────────────────────────────────
-
 
 def create_client(config: dict, role: str = "coder") -> LLMClient:
     """

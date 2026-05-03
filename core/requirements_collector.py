@@ -7,36 +7,17 @@ Streamlit UI ile entegre çalışır.
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
+
 # Bilinen stack'ler → şablon eşleştirme için
 KNOWN_STACKS = {
-    "fastapi": [
-        "fastapi",
-        "fast api",
-        "python api",
-        "rest api python",
-        "python backend",
-    ],
+    "fastapi": ["fastapi", "fast api", "python api", "rest api python", "python backend"],
     "react": ["react", "reactjs", "react.js", "vite react", "react typescript"],
     "nextjs": ["nextjs", "next.js", "next js", "next", "full stack react"],
     "cli": ["cli", "command line", "terminal tool", "komut satırı", "script"],
 }
 
-PLATFORM_OPTIONS = [
-    "Web (Backend API)",
-    "Web (Full Stack)",
-    "Masaüstü",
-    "CLI / Terminal",
-    "Mobil",
-]
-DATABASE_OPTIONS = [
-    "Yok",
-    "PostgreSQL",
-    "MySQL",
-    "SQLite",
-    "MongoDB",
-    "Redis",
-    "Supabase",
-]
+PLATFORM_OPTIONS = ["Web (Backend API)", "Web (Full Stack)", "Masaüstü", "CLI / Terminal", "Mobil"]
+DATABASE_OPTIONS = ["Yok", "PostgreSQL", "MySQL", "SQLite", "MongoDB", "Redis", "Supabase"]
 AUTH_OPTIONS = ["Yok", "JWT", "Session", "OAuth2", "API Key"]
 
 
@@ -71,11 +52,7 @@ class ProjectRequirements:
 
     def to_summary(self) -> str:
         """LLM'e gönderilecek özet metin üretir."""
-        features_text = (
-            "\n".join(f"- {f}" for f in self.features)
-            if self.features
-            else "- Belirtilmedi"
-        )
+        features_text = "\n".join(f"- {f}" for f in self.features) if self.features else "- Belirtilmedi"
         return f"""
 Proje Adı: {self.name}
 Açıklama: {self.description}
@@ -117,7 +94,6 @@ def get_template_description(template_name: str) -> str:
 # Streamlit UI için state yönetimi
 # ─────────────────────────────────────────
 
-
 def init_session_state(st) -> None:
     """
     Streamlit session_state'i başlatır.
@@ -144,18 +120,20 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
     # ── Temel Bilgiler ──
     with st.expander("📌 Temel Bilgiler", expanded=True):
         req.name = st.text_input(
-            "Proje adı", value=req.name, placeholder="örn: TaskManager API"
+            "Proje adı",
+            value=req.name,
+            placeholder="örn: TaskManager API"
         )
         req.description = st.text_area(
             "Proje açıklaması (1-3 cümle)",
             value=req.description,
             placeholder="örn: Kullanıcıların görev oluşturup yönetebileceği REST API.",
-            height=80,
+            height=80
         )
         req.goal = st.text_input(
             "Projenin ana hedefi",
             value=req.goal,
-            placeholder="örn: Mobil uygulama için backend sağlamak",
+            placeholder="örn: Mobil uygulama için backend sağlamak"
         )
 
     # ── Teknik Tercihler ──
@@ -163,7 +141,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
         req.stack = st.text_input(
             "Teknoloji stack'i",
             value=req.stack,
-            placeholder="örn: Python + FastAPI + PostgreSQL",
+            placeholder="örn: Python + FastAPI + PostgreSQL"
         )
 
         # Şablon tespiti
@@ -171,9 +149,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
             detected = detect_template(req.stack)
             if detected and st.session_state.template_accepted is None:
                 desc = get_template_description(detected)
-                st.info(
-                    f"💡 **{desc}** tespit edildi. Bu şablonu kullanmak ister misin?"
-                )
+                st.info(f"💡 **{desc}** tespit edildi. Bu şablonu kullanmak ister misin?")
                 col1, col2 = st.columns(2)
                 with col1:
                     if st.button("✅ Evet, şablonu kullan", use_container_width=True):
@@ -196,11 +172,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
         req.platform = st.selectbox(
             "Hedef platform",
             options=[""] + PLATFORM_OPTIONS,
-            index=(
-                PLATFORM_OPTIONS.index(req.platform) + 1
-                if req.platform in PLATFORM_OPTIONS
-                else 0
-            ),
+            index=PLATFORM_OPTIONS.index(req.platform) + 1 if req.platform in PLATFORM_OPTIONS else 0
         )
 
         col1, col2 = st.columns(2)
@@ -208,17 +180,13 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
             req.database = st.selectbox(
                 "Veritabanı",
                 options=DATABASE_OPTIONS,
-                index=(
-                    DATABASE_OPTIONS.index(req.database)
-                    if req.database in DATABASE_OPTIONS
-                    else 0
-                ),
+                index=DATABASE_OPTIONS.index(req.database) if req.database in DATABASE_OPTIONS else 0
             )
         with col2:
             req.auth = st.selectbox(
                 "Kimlik doğrulama",
                 options=AUTH_OPTIONS,
-                index=AUTH_OPTIONS.index(req.auth) if req.auth in AUTH_OPTIONS else 0,
+                index=AUTH_OPTIONS.index(req.auth) if req.auth in AUTH_OPTIONS else 0
             )
 
     # ── Özellikler ──
@@ -229,7 +197,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
             value="\n".join(req.features),
             placeholder="Kullanıcı kayıt/giriş\nGörev oluşturma\nGörev kategorileri",
             height=120,
-            label_visibility="collapsed",
+            label_visibility="collapsed"
         )
         req.features = [f.strip() for f in features_text.splitlines() if f.strip()]
 
@@ -239,7 +207,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
             "Kısıtlamalar veya özel istekler",
             value=req.notes if req.notes != "Yok" else "",
             placeholder="örn: Sadece async endpoint'ler kullanılsın, Docker desteği eklensin...",
-            height=80,
+            height=80
         )
         if not req.notes:
             req.notes = "Yok"
@@ -251,7 +219,7 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
             "Direkt düzenleyebilirsin",
             value=preview,
             height=300,
-            label_visibility="collapsed",
+            label_visibility="collapsed"
         )
         # Kullanıcı düzenlediyse kaydet
         if edited != preview:
@@ -263,14 +231,10 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
 
     if not req.is_complete():
         missing = []
-        if not req.name:
-            missing.append("Proje adı")
-        if not req.description:
-            missing.append("Açıklama")
-        if not req.stack:
-            missing.append("Stack")
-        if not req.platform:
-            missing.append("Platform")
+        if not req.name: missing.append("Proje adı")
+        if not req.description: missing.append("Açıklama")
+        if not req.stack: missing.append("Stack")
+        if not req.platform: missing.append("Platform")
         st.warning(f"Eksik alanlar: {', '.join(missing)}")
         return None
 
@@ -283,16 +247,8 @@ def render_collection_form(st) -> Optional[ProjectRequirements]:
 
 def _generate_requirements_md(req: ProjectRequirements) -> str:
     """ProjectRequirements'tan REQUIREMENTS.md içeriği üretir."""
-    features_md = (
-        "\n".join(f"- [ ] {f}" for f in req.features)
-        if req.features
-        else "- [ ] Belirtilmedi"
-    )
-    template_line = (
-        f"\n## Şablon\n{get_template_description(req.detected_template)}"
-        if req.detected_template
-        else ""
-    )
+    features_md = "\n".join(f"- [ ] {f}" for f in req.features) if req.features else "- [ ] Belirtilmedi"
+    template_line = f"\n## Şablon\n{get_template_description(req.detected_template)}" if req.detected_template else ""
 
     return f"""# Gereksinimler — {req.name}
 

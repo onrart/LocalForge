@@ -8,7 +8,6 @@ import streamlit as st
 from pathlib import Path
 
 import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.llm_client import create_client
@@ -19,12 +18,10 @@ st.set_page_config(page_title="Düzenleme — LocalForge", page_icon="✏️", l
 
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.json"
 
-
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     return {}
-
 
 cfg = load_config()
 
@@ -83,9 +80,7 @@ with tab1:
 
     col1, col2 = st.columns([1, 4])
     with col1:
-        edit_btn = st.button(
-            "🤖 Düzenle", type="primary", disabled=not instruction.strip()
-        )
+        edit_btn = st.button("🤖 Düzenle", type="primary", disabled=not instruction.strip())
 
     if edit_btn and instruction.strip():
         coder_client = create_client(cfg, role="coder")
@@ -127,13 +122,8 @@ with tab1:
 
             d = edit_result.diff_summary
             col1, col2 = st.columns(2)
-            col1.metric("Eklenen Satır", f"+{d['added']}", delta=d["added"])
-            col2.metric(
-                "Silinen Satır",
-                f"-{d['removed']}",
-                delta=-d["removed"],
-                delta_color="inverse",
-            )
+            col1.metric("Eklenen Satır", f"+{d['added']}", delta=d['added'])
+            col2.metric("Silinen Satır", f"-{d['removed']}", delta=-d['removed'], delta_color="inverse")
 
             st.markdown("### 📋 Diff")
             st.code(edit_result.diff, language="diff")
@@ -141,13 +131,9 @@ with tab1:
             st.divider()
             c1, c2 = st.columns(2)
             with c1:
-                if st.button(
-                    "✅ Onayla ve Kaydet", type="primary", use_container_width=True
-                ):
+                if st.button("✅ Onayla ve Kaydet", type="primary", use_container_width=True):
                     if editor.apply_edit(edit_result):
-                        st.success(
-                            "✅ Değişiklikler kaydedildi! MEMORY.md güncellendi."
-                        )
+                        st.success("✅ Değişiklikler kaydedildi! MEMORY.md güncellendi.")
                         st.rerun()
                     else:
                         st.error("❌ Kaydetme başarısız.")
@@ -162,20 +148,11 @@ with tab1:
 # ── Tab 2: Direkt Düzenleme ──
 with tab2:
     st.markdown(f"### 📄 `{selected_file}`")
-    st.caption(
-        "Direkt düzenlediğinizde değişiklikler MEMORY.md'ye kaydedilir, LLM bu dosyaya bir daha dokunmaz."
-    )
+    st.caption("Direkt düzenlediğinizde değişiklikler MEMORY.md'ye kaydedilir, LLM bu dosyaya bir daha dokunmaz.")
 
     ext = Path(selected_file).suffix.lstrip(".")
-    lang_map = {
-        "py": "python",
-        "js": "javascript",
-        "ts": "typescript",
-        "json": "json",
-        "md": "markdown",
-        "html": "html",
-        "css": "css",
-    }
+    lang_map = {"py": "python", "js": "javascript", "ts": "typescript",
+                "json": "json", "md": "markdown", "html": "html", "css": "css"}
     lang = lang_map.get(ext, "text")
 
     edited_content = st.text_area(
@@ -197,15 +174,11 @@ with tab2:
     if save_btn and edited_content != current_content:
         coder_client = create_client(cfg, role="coder")
         editor = EditorAgent(coder_client, ctx, project_path)
-        result = editor.apply_manual_edit(
-            selected_file, edited_content, current_content
-        )
+        result = editor.apply_manual_edit(selected_file, edited_content, current_content)
 
         if result["success"]:
             d = result["diff_summary"]
-            st.success(
-                f"✅ Kaydedildi — +{d['added']}/{d['removed']} satır. MEMORY.md güncellendi."
-            )
+            st.success(f"✅ Kaydedildi — +{d['added']}/{d['removed']} satır. MEMORY.md güncellendi.")
             st.code(result["diff"], language="diff")
             st.rerun()
         else:

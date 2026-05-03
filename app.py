@@ -16,18 +16,15 @@ st.set_page_config(
 # ─── Config yükle ───
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
-
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-
 def save_config(config: dict):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-
 
 # Session state başlat
 if "config" not in st.session_state:

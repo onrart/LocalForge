@@ -1,0 +1,55 @@
+{
+  "fastapi": {
+    "keywords": ["fastapi", "fast api", "python api", "rest api python", "python backend", "fastapi postgresql", "fastapi sqlite"],
+    "path": "templates/fastapi",
+    "description": "FastAPI + SQLAlchemy + Pydantic iskeleti",
+    "language": "python",
+    "files": [
+      "main.py",
+      "requirements.txt",
+      "src/__init__.py",
+      "src/config.py",
+      "src/database.py"
+    ]
+  },
+  "react": {
+    "keywords": ["react", "reactjs", "react.js", "vite react", "react typescript", "react vite"],
+    "path": "templates/react",
+    "description": "React + Vite + TypeScript iskeleti",
+    "language": "typescript",
+    "files": [
+      "package.json",
+      "vite.config.ts",
+      "tsconfig.json",
+      "index.html",
+      "src/main.tsx",
+      "src/App.tsx"
+    ]
+  },
+  "nextjs": {
+    "keywords": ["nextjs", "next.js", "next js", "next", "full stack react", "next typescript"],
+    "path": "templates/nextjs",
+    "description": "Next.js 14 + App Router + TypeScript iskeleti",
+    "language": "typescript",
+    "files": [
+      "package.json",
+      "next.config.ts",
+      "tsconfig.json",
+      "app/layout.tsx",
+      "app/page.tsx"
+    ]
+  },
+  "cli": {
+    "keywords": ["cli", "command line", "terminal tool", "komut satırı", "python cli", "click", "argparse"],
+    "path": "templates/cli",
+    "description": "Python CLI + Click + Rich iskeleti",
+    "language": "python",
+    "files": [
+      "main.py",
+      "requirements.txt",
+      "src/__init__.py",
+      "src/cli.py",
+      "src/config.py"
+    ]
+  }
+}

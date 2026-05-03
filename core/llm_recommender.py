@@ -10,13 +10,13 @@ from core.system_scanner import SystemInfo
 
 @dataclass
 class ModelRecommendation:
-    name: str  # Örn: "qwen2.5-coder:7b"
-    display_name: str  # Örn: "Qwen2.5 Coder 7B"
-    role: str  # "planner" | "coder" | "both"
+    name: str               # Örn: "qwen2.5-coder:7b"
+    display_name: str       # Örn: "Qwen2.5 Coder 7B"
+    role: str               # "planner" | "coder" | "both"
     vram_required_gb: float
-    pull_command: str  # "ollama pull qwen2.5-coder:7b"
+    pull_command: str       # "ollama pull qwen2.5-coder:7b"
     description: str
-    is_best: bool = False  # Önerilen birincil seçim mi?
+    is_best: bool = False   # Önerilen birincil seçim mi?
 
 
 # ─────────────────────────────────────────
@@ -30,7 +30,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=16.0,
         pull_command="ollama pull qwen2.5:32b",
-        description="En güçlü planlama modeli, karmaşık mimari kararlar için.",
+        description="En güçlü planlama modeli, karmaşık mimari kararlar için."
     ),
     ModelRecommendation(
         name="qwen2.5:14b",
@@ -38,7 +38,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=10.0,
         pull_command="ollama pull qwen2.5:14b",
-        description="Güçlü akıl yürütme, mimari planlama için ideal.",
+        description="Güçlü akıl yürütme, mimari planlama için ideal."
     ),
     ModelRecommendation(
         name="mistral:7b",
@@ -46,7 +46,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=5.5,
         pull_command="ollama pull mistral:7b",
-        description="Hızlı ve yetenekli, orta ölçekli projeler için yeterli.",
+        description="Hızlı ve yetenekli, orta ölçekli projeler için yeterli."
     ),
     ModelRecommendation(
         name="qwen2.5:7b",
@@ -54,7 +54,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=5.0,
         pull_command="ollama pull qwen2.5:7b",
-        description="Dengeli planlama modeli, 8GB VRAM için uygun.",
+        description="Dengeli planlama modeli, 8GB VRAM için uygun."
     ),
     ModelRecommendation(
         name="qwen2.5:3b",
@@ -62,7 +62,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=2.5,
         pull_command="ollama pull qwen2.5:3b",
-        description="Düşük VRAM için hafif planlama modeli.",
+        description="Düşük VRAM için hafif planlama modeli."
     ),
     ModelRecommendation(
         name="phi3:mini",
@@ -70,7 +70,7 @@ PLANNER_MODELS = [
         role="planner",
         vram_required_gb=0.0,  # CPU
         pull_command="ollama pull phi3:mini",
-        description="GPU gerektirmez, CPU'da çalışır. En temel seçenek.",
+        description="GPU gerektirmez, CPU'da çalışır. En temel seçenek."
     ),
 ]
 
@@ -81,7 +81,7 @@ CODER_MODELS = [
         role="coder",
         vram_required_gb=12.0,
         pull_command="ollama pull deepseek-coder-v2:16b",
-        description="Kod üretiminde en güçlü seçenek.",
+        description="Kod üretiminde en güçlü seçenek."
     ),
     ModelRecommendation(
         name="qwen2.5-coder:7b",
@@ -89,7 +89,7 @@ CODER_MODELS = [
         role="coder",
         vram_required_gb=5.0,
         pull_command="ollama pull qwen2.5-coder:7b",
-        description="Hızlı, hassas, çok dilli kod üretimi. 8GB VRAM için ideal.",
+        description="Hızlı, hassas, çok dilli kod üretimi. 8GB VRAM için ideal."
     ),
     ModelRecommendation(
         name="deepseek-coder:6.7b",
@@ -97,7 +97,7 @@ CODER_MODELS = [
         role="coder",
         vram_required_gb=5.0,
         pull_command="ollama pull deepseek-coder:6.7b",
-        description="Kod odaklı, güçlü tamamlama yeteneği.",
+        description="Kod odaklı, güçlü tamamlama yeteneği."
     ),
     ModelRecommendation(
         name="qwen2.5-coder:3b",
@@ -105,7 +105,7 @@ CODER_MODELS = [
         role="coder",
         vram_required_gb=2.5,
         pull_command="ollama pull qwen2.5-coder:3b",
-        description="Düşük VRAM için hafif kodlama modeli.",
+        description="Düşük VRAM için hafif kodlama modeli."
     ),
     ModelRecommendation(
         name="phi3:mini",
@@ -113,7 +113,7 @@ CODER_MODELS = [
         role="coder",
         vram_required_gb=0.0,
         pull_command="ollama pull phi3:mini",
-        description="CPU'da çalışır. GPU yoksa tek seçenek.",
+        description="CPU'da çalışır. GPU yoksa tek seçenek."
     ),
 ]
 
@@ -121,7 +121,6 @@ CODER_MODELS = [
 # ─────────────────────────────────────────
 # Öneri Motoru
 # ─────────────────────────────────────────
-
 
 def _effective_vram(info: SystemInfo) -> float:
     """
@@ -153,7 +152,8 @@ def recommend(info: SystemInfo) -> dict:
     def filter_models(models: list) -> list:
         # VRAM'e sığan modelleri filtrele, büyükten küçüğe sırala
         fitting = [
-            m for m in models if m.vram_required_gb <= vram or m.vram_required_gb == 0.0
+            m for m in models
+            if m.vram_required_gb <= vram or m.vram_required_gb == 0.0
         ]
         fitting.sort(key=lambda m: m.vram_required_gb, reverse=True)
         return fitting if fitting else [models[-1]]  # En az gereksinimlisi
@@ -182,7 +182,6 @@ def get_all_model_names() -> list[str]:
 
 if __name__ == "__main__":
     from core.system_scanner import scan
-
     info = scan()
     result = recommend(info)
     print(f"\nEfektif VRAM: {result['effective_vram_gb']} GB")

@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+
 # MD Dosya Şablonları
 _TEMPLATES = {
     "PROJECT.md": """\
@@ -23,6 +24,7 @@ _TEMPLATES = {
 ## Platform
 {platform}
 """,
+
     "REQUIREMENTS.md": """\
 # Gereksinimler
 
@@ -41,26 +43,31 @@ _TEMPLATES = {
 ## Ek Notlar
 {notes}
 """,
+
     "ARCHITECTURE.md": """\
 # Mimari
 
 _(Planlama ajanı tarafından doldurulacak)_
 """,
+
     "TASKS.md": """\
 # Görev Listesi
 
 _(Planlama ajanı tarafından doldurulacak)_
 """,
+
     "PROGRESS.md": """\
 # Tamamlanan İşler
 
 _(Her görev tamamlandığında güncellenir)_
 """,
+
     "CURRENT_TASK.md": """\
 # Şu Anki Görev
 
 _(Her görev başlamadan önce güncellenir)_
 """,
+
     "MEMORY.md": """\
 # Kritik Kararlar ve Notlar
 
@@ -98,37 +105,28 @@ class ContextManager:
         self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
         # PROJECT.md
-        self._write(
-            "PROJECT.md",
-            _TEMPLATES["PROJECT.md"].format(
-                name=project_info.get("name", ""),
-                stack=project_info.get("stack", ""),
-                goal=project_info.get("goal", ""),
-                platform=project_info.get("platform", ""),
-            ),
-        )
+        self._write("PROJECT.md", _TEMPLATES["PROJECT.md"].format(
+            name=project_info.get("name", ""),
+            stack=project_info.get("stack", ""),
+            goal=project_info.get("goal", ""),
+            platform=project_info.get("platform", ""),
+        ))
 
         # REQUIREMENTS.md
-        features = "\n".join(f"- [ ] {f}" for f in project_info.get("features", []))
-        self._write(
-            "REQUIREMENTS.md",
-            _TEMPLATES["REQUIREMENTS.md"].format(
-                description=project_info.get("description", ""),
-                features=features,
-                database=project_info.get("database", "Yok"),
-                auth=project_info.get("auth", "Yok"),
-                notes=project_info.get("notes", "Yok"),
-            ),
+        features = "\n".join(
+            f"- [ ] {f}" for f in project_info.get("features", [])
         )
+        self._write("REQUIREMENTS.md", _TEMPLATES["REQUIREMENTS.md"].format(
+            description=project_info.get("description", ""),
+            features=features,
+            database=project_info.get("database", "Yok"),
+            auth=project_info.get("auth", "Yok"),
+            notes=project_info.get("notes", "Yok"),
+        ))
 
         # Geri kalan dosyalar (boş şablonlar)
-        for filename in [
-            "ARCHITECTURE.md",
-            "TASKS.md",
-            "PROGRESS.md",
-            "CURRENT_TASK.md",
-            "MEMORY.md",
-        ]:
+        for filename in ["ARCHITECTURE.md", "TASKS.md", "PROGRESS.md",
+                          "CURRENT_TASK.md", "MEMORY.md"]:
             path = self.agent_dir / filename
             if not path.exists():
                 self._write(filename, _TEMPLATES[filename])
@@ -185,11 +183,8 @@ class ContextManager:
         lines = path.read_text(encoding="utf-8").splitlines()
         truncated = lines[:max_lines]
         content = "\n".join(truncated)
-        note = (
-            f"\n... (toplam {len(lines)} satır, ilk {max_lines} gösteriliyor)"
-            if len(lines) > max_lines
-            else ""
-        )
+        note = f"\n... (toplam {len(lines)} satır, ilk {max_lines} gösteriliyor)" \
+               if len(lines) > max_lines else ""
         return f"## MEVCUT DOSYA: {file_path}\n```\n{content}{note}\n```"
 
     # ─────────────────────────────────────────
@@ -242,7 +237,10 @@ class ContextManager:
         entry = f"- [{timestamp}] {note}"
 
         if f"## {section}" in content:
-            content = content.replace(f"## {section}", f"## {section}\n{entry}")
+            content = content.replace(
+                f"## {section}",
+                f"## {section}\n{entry}"
+            )
         else:
             content += f"\n## {section}\n{entry}\n"
 
@@ -302,7 +300,6 @@ class ContextManager:
         files: proje içindeki göreli dosya yolları listesi
         """
         import shutil
-
         checkpoint_dir = self.checkpoints_dir / task_name
         files_dir = checkpoint_dir / "files"
         files_dir.mkdir(parents=True, exist_ok=True)
@@ -324,7 +321,8 @@ class ContextManager:
             "files_created": copied,
         }
         (checkpoint_dir / "snapshot.json").write_text(
-            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+            json.dumps(meta, indent=2, ensure_ascii=False),
+            encoding="utf-8"
         )
         return checkpoint_dir
 
@@ -343,7 +341,6 @@ class ContextManager:
     def restore_checkpoint(self, task_name: str):
         """Belirtilen checkpoint'e geri döner (dosyaları geri yazar)."""
         import shutil
-
         checkpoint_dir = self.checkpoints_dir / task_name
         files_dir = checkpoint_dir / "files"
         if not files_dir.exists():

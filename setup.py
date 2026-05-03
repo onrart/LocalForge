@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     "ollama_url": "http://localhost:11434",
     "lmstudio_url": "http://localhost:1234",
     "approval_mode": False,
-    "last_project": "",
+    "last_project": ""
 }
 
 
@@ -45,7 +45,7 @@ def install_requirements():
     result = subprocess.run(
         [sys.executable, "-m", "pip", "install", "-r", str(req_path), "--quiet"],
         capture_output=True,
-        text=True,
+        text=True
     )
     if result.returncode == 0:
         print_ok("Bağımlılıklar kuruldu.")
@@ -88,20 +88,21 @@ def create_directories():
 
 def check_ollama():
     print_step("Ollama kontrol ediliyor...")
-    result = subprocess.run(["ollama", "--version"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["ollama", "--version"],
+        capture_output=True,
+        text=True
+    )
     if result.returncode == 0:
         print_ok(f"Ollama bulundu: {result.stdout.strip()}")
     else:
-        print(
-            "  ⚠️  Ollama bulunamadı. LM Studio kullanabilir veya Ollama kurabilirsiniz."
-        )
+        print("  ⚠️  Ollama bulunamadı. LM Studio kullanabilir veya Ollama kurabilirsiniz.")
         print("      https://ollama.ai")
 
 
 def check_lmstudio():
     print_step("LM Studio kontrol ediliyor...")
     import requests
-
     try:
         resp = requests.get("http://localhost:1234/v1/models", timeout=2)
         if resp.status_code == 200:

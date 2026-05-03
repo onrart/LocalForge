@@ -31,8 +31,16 @@ def _parse_response(response: str) -> tuple[str, str]:
     LLM yanıtından ARCHITECTURE ve TASKS içeriklerini ayıklar.
     Returns: (architecture_md, tasks_md)
     """
-    arch_match = re.search(r"===ARCHITECTURE===(.*?)===TASKS===", response, re.DOTALL)
-    tasks_match = re.search(r"===TASKS===(.*?)$", response, re.DOTALL)
+    arch_match = re.search(
+        r"===ARCHITECTURE===(.*?)===TASKS===",
+        response,
+        re.DOTALL
+    )
+    tasks_match = re.search(
+        r"===TASKS===(.*?)$",
+        response,
+        re.DOTALL
+    )
 
     architecture = arch_match.group(1).strip() if arch_match else ""
     tasks = tasks_match.group(1).strip() if tasks_match else ""
@@ -139,9 +147,7 @@ class PlannerAgent:
             "error": "",
         }
 
-    def plan_stream(
-        self, requirements: ProjectRequirements
-    ) -> Generator[str, None, None]:
+    def plan_stream(self, requirements: ProjectRequirements) -> Generator[str, None, None]:
         """
         Streaming planlama. UI'da canlı gösterim için.
         Tam yanıt bittikten sonra dosyalara yazar.

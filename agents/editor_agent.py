@@ -11,18 +11,13 @@ from typing import Generator
 from core.llm_client import LLMClient
 from core.context_manager import ContextManager
 from core.syntax_validator import validate
-from core.file_writer import (
-    parse_llm_output,
-    write_file,
-    _generate_diff,
-    summarize_diff,
-)
+from core.file_writer import parse_llm_output, write_file, _generate_diff, summarize_diff
 
 
 @dataclass
 class EditRequest:
-    instruction: str  # Kullanıcının doğal dil isteği
-    target_file: str  # Düzenlenecek dosya yolu (göreli)
+    instruction: str        # Kullanıcının doğal dil isteği
+    target_file: str        # Düzenlenecek dosya yolu (göreli)
     context_hint: str = ""  # Ek bağlam (opsiyonel)
 
 
@@ -34,7 +29,7 @@ class EditResult:
     diff_summary: dict = None
     new_content: str = ""
     error: str = ""
-    change_summary: str = ""  # LLM'in ürettiği değişiklik özeti
+    change_summary: str = ""   # LLM'in ürettiği değişiklik özeti
 
     def __post_init__(self):
         if self.diff_summary is None:
@@ -165,9 +160,7 @@ class EditorAgent:
             # MEMORY.md'ye düzenleme notu
             diff_s = result.diff_summary
             summary = f"+{diff_s['added']}/-{diff_s['removed']} satır"
-            self.ctx.record_manual_edit(
-                result.file_path, f"{result.change_summary} ({summary})"
-            )
+            self.ctx.record_manual_edit(result.file_path, f"{result.change_summary} ({summary})")
             return True
 
         return False
@@ -212,9 +205,7 @@ class EditorAgent:
         memory: str,
         project: str,
     ) -> str:
-        context_section = (
-            f"\n### Ek Bağlam\n{request.context_hint}" if request.context_hint else ""
-        )
+        context_section = f"\n### Ek Bağlam\n{request.context_hint}" if request.context_hint else ""
 
         return f"""## Proje
 {project}

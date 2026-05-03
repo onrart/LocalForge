@@ -23,14 +23,14 @@ class ValidationResult:
 
 # Desteklenen dil → dosya uzantısı eşleşmesi
 LANGUAGE_MAP = {
-    ".py": "python",
-    ".js": "javascript",
-    ".ts": "typescript",
-    ".jsx": "javascript",
-    ".tsx": "typescript",
+    ".py":   "python",
+    ".js":   "javascript",
+    ".ts":   "typescript",
+    ".jsx":  "javascript",
+    ".tsx":  "typescript",
     ".json": "json",
     ".html": "html",
-    ".css": "css",
+    ".css":  "css",
 }
 
 
@@ -106,16 +106,12 @@ def _validate_js_ts(content: str, file_path: str, language: str) -> ValidationRe
         if language == "typescript" and _command_exists("tsc"):
             result = subprocess.run(
                 ["tsc", "--noEmit", "--allowJs", tmp_path],
-                capture_output=True,
-                text=True,
-                timeout=15,
+                capture_output=True, text=True, timeout=15
             )
         else:
             result = subprocess.run(
                 ["node", "--check", tmp_path],
-                capture_output=True,
-                text=True,
-                timeout=10,
+                capture_output=True, text=True, timeout=10
             )
 
         Path(tmp_path).unlink(missing_ok=True)
@@ -168,7 +164,10 @@ def _validate_json(content: str) -> ValidationResult:
 def _command_exists(cmd: str) -> bool:
     """Komutun PATH'te olup olmadığını kontrol eder."""
     try:
-        subprocess.run([cmd, "--version"], capture_output=True, timeout=3)
+        subprocess.run(
+            [cmd, "--version"],
+            capture_output=True, timeout=3
+        )
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False

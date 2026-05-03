@@ -12,17 +12,17 @@ from pathlib import Path
 
 @dataclass
 class ParsedFile:
-    path: str  # Örn: "src/auth/router.py"
-    content: str  # Dosya içeriği
-    language: str  # "python" | "javascript" | vb.
+    path: str        # Örn: "src/auth/router.py"
+    content: str     # Dosya içeriği
+    language: str    # "python" | "javascript" | vb.
 
 
 @dataclass
 class WriteResult:
     path: str
     success: bool
-    was_new: bool  # Yeni mi oluşturuldu, mevcut mu güncellendi
-    diff: str = ""  # Unified diff (UI'da gösterim için)
+    was_new: bool          # Yeni mi oluşturuldu, mevcut mu güncellendi
+    diff: str = ""         # Unified diff (UI'da gösterim için)
     error: str = ""
 
 
@@ -50,7 +50,8 @@ class WriteSession:
 # ... kod ...
 # ```
 _FILE_BLOCK_PATTERN = re.compile(
-    r"#\s*Dosya:\s*(.+?)\n```(?:\w+)?\n(.*?)```", re.DOTALL | re.IGNORECASE
+    r"#\s*Dosya:\s*(.+?)\n```(?:\w+)?\n(.*?)```",
+    re.DOTALL | re.IGNORECASE
 )
 
 # Alternatif format (bazı modeller farklı üretebilir):
@@ -60,7 +61,7 @@ _FILE_BLOCK_PATTERN = re.compile(
 # ```
 _ALT_BLOCK_PATTERN = re.compile(
     r"```(\w+)?\n#\s*([^\n]+\.(?:py|js|ts|jsx|tsx|json|md|txt|yaml|yml|html|css))\n(.*?)```",
-    re.DOTALL,
+    re.DOTALL
 )
 
 
@@ -100,18 +101,10 @@ def parse_llm_output(response: str) -> list[ParsedFile]:
 def _detect_language(file_path: str) -> str:
     """Dosya uzantısından dil adını döner."""
     ext_map = {
-        ".py": "python",
-        ".js": "javascript",
-        ".ts": "typescript",
-        ".jsx": "javascript",
-        ".tsx": "typescript",
-        ".json": "json",
-        ".html": "html",
-        ".css": "css",
-        ".md": "markdown",
-        ".yaml": "yaml",
-        ".yml": "yaml",
-        ".sh": "bash",
+        ".py": "python", ".js": "javascript", ".ts": "typescript",
+        ".jsx": "javascript", ".tsx": "typescript", ".json": "json",
+        ".html": "html", ".css": "css", ".md": "markdown",
+        ".yaml": "yaml", ".yml": "yaml", ".sh": "bash",
         ".txt": "text",
     }
     ext = Path(file_path).suffix.lower()
@@ -121,7 +114,6 @@ def _detect_language(file_path: str) -> str:
 # ─────────────────────────────────────────
 # Dosya Yazma
 # ─────────────────────────────────────────
-
 
 def write_file(
     parsed_file: ParsedFile,
@@ -229,15 +221,13 @@ def _generate_diff(old: str, new: str, file_path: str) -> str:
     old_lines = old.splitlines(keepends=True)
     new_lines = new.splitlines(keepends=True)
 
-    diff = list(
-        difflib.unified_diff(
-            old_lines,
-            new_lines,
-            fromfile=f"a/{file_path}",
-            tofile=f"b/{file_path}",
-            lineterm="",
-        )
-    )
+    diff = list(difflib.unified_diff(
+        old_lines,
+        new_lines,
+        fromfile=f"a/{file_path}",
+        tofile=f"b/{file_path}",
+        lineterm="",
+    ))
 
     if not diff:
         return "~ Değişiklik yok"
@@ -249,7 +239,6 @@ def _generate_diff(old: str, new: str, file_path: str) -> str:
 # Diff Özetleme (UI için)
 # ─────────────────────────────────────────
 
-
 def summarize_diff(diff: str) -> dict:
     """
     Diff'ten eklenen/silinen satır sayısını çıkarır.
@@ -260,15 +249,9 @@ def summarize_diff(diff: str) -> dict:
     if diff == "~ Değişiklik yok":
         return {"added": 0, "removed": 0}
 
-    added = sum(
-        1
-        for line in diff.splitlines()
-        if line.startswith("+") and not line.startswith("+++")
-    )
-    removed = sum(
-        1
-        for line in diff.splitlines()
-        if line.startswith("-") and not line.startswith("---")
-    )
+    added = sum(1 for line in diff.splitlines()
+                if line.startswith("+") and not line.startswith("+++"))
+    removed = sum(1 for line in diff.splitlines()
+                  if line.startswith("-") and not line.startswith("---"))
 
     return {"added": added, "removed": removed}

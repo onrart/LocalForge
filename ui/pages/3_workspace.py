@@ -9,25 +9,20 @@ import streamlit as st
 from pathlib import Path
 
 import sys
-
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.llm_client import create_client
 from core.context_manager import ContextManager
 from agents.coder_agent import CoderAgent
 
-st.set_page_config(
-    page_title="Çalışma Alanı — LocalForge", page_icon="⚡", layout="wide"
-)
+st.set_page_config(page_title="Çalışma Alanı — LocalForge", page_icon="⚡", layout="wide")
 
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.json"
-
 
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     return {}
-
 
 cfg = load_config()
 
@@ -45,9 +40,7 @@ ctx = ContextManager(project_path)
 
 # ─── Başlık ───
 st.markdown("# ⚡ Çalışma Alanı")
-project_name = (
-    ctx.read_file("PROJECT.md").split("\n")[0].replace("# Proje:", "").strip()
-)
+project_name = ctx.read_file("PROJECT.md").split("\n")[0].replace("# Proje:", "").strip()
 st.caption(f"Proje: **{project_name}** | `{project_path}`")
 st.divider()
 
@@ -62,11 +55,7 @@ with left_col:
     if all_tasks:
         for task in all_tasks:
             icon = "✅" if task["done"] else "⏳"
-            active = not task["done"] and all(
-                t["done"]
-                for t in all_tasks
-                if all_tasks.index(t) < all_tasks.index(task)
-            )
+            active = not task["done"] and all(t["done"] for t in all_tasks if all_tasks.index(t) < all_tasks.index(task))
             if active:
                 st.markdown(f"**→ {icon} {task['name']}**")
             else:
@@ -93,9 +82,7 @@ with left_col:
             with col1:
                 st.caption(f"✅ {cp['task']}")
             with col2:
-                if st.button(
-                    "↩️", key=f"rollback_{cp['task']}", help=f"Geri dön: {cp['task']}"
-                ):
+                if st.button("↩️", key=f"rollback_{cp['task']}", help=f"Geri dön: {cp['task']}"):
                     try:
                         ctx.restore_checkpoint(cp["task"])
                         st.success(f"✅ {cp['task']} checkpoint'ine dönüldü!")
@@ -113,24 +100,14 @@ with right_col:
     btn_col1, btn_col2, btn_col3 = st.columns(3)
 
     with btn_col1:
-        start_btn = st.button(
-            "▶️ Başlat",
-            type="primary",
-            use_container_width=True,
-            disabled=st.session_state.get("coding_running", False),
-        )
+        start_btn = st.button("▶️ Başlat", type="primary", use_container_width=True,
+                               disabled=st.session_state.get("coding_running", False))
     with btn_col2:
-        stop_btn = st.button(
-            "⏹️ Durdur",
-            use_container_width=True,
-            disabled=not st.session_state.get("coding_running", False),
-        )
+        stop_btn = st.button("⏹️ Durdur", use_container_width=True,
+                              disabled=not st.session_state.get("coding_running", False))
     with btn_col3:
-        if st.button(
-            "✏️ Düzenle →",
-            use_container_width=True,
-            disabled=not st.session_state.get("coding_done", False),
-        ):
+        if st.button("✏️ Düzenle →", use_container_width=True,
+                      disabled=not st.session_state.get("coding_done", False)):
             st.switch_page("ui/pages/4_editor.py")
 
     st.divider()
@@ -189,9 +166,7 @@ with right_col:
                 elif etype == "task_start":
                     current_task = task
                     live_output = ""
-                    status_area.info(
-                        f"⚡ [{data['index']}/{data['total']}] **{task}** işleniyor..."
-                    )
+                    status_area.info(f"⚡ [{data['index']}/{data['total']}] **{task}** işleniyor...")
 
                 elif etype == "token":
                     live_output += data["token"]
@@ -203,23 +178,15 @@ with right_col:
                     )
 
                 elif etype == "retry":
-                    status_area.warning(
-                        f"🔄 Düzeltme deneniyor ({data['attempt']}/3)..."
-                    )
+                    status_area.warning(f"🔄 Düzeltme deneniyor ({data['attempt']}/3)...")
 
                 elif etype == "syntax_failed":
                     status_area.error(f"❌ {data['message']}")
 
                 elif etype == "task_done":
                     files_str = ", ".join(f"`{f}`" for f in data["files"])
-                    deps_str = (
-                        f" | Yeni paket: {', '.join(data['deps'])}"
-                        if data["deps"]
-                        else ""
-                    )
-                    status_area.success(
-                        f"✅ **{task}** tamamlandı — {files_str}{deps_str}"
-                    )
+                    deps_str = f" | Yeni paket: {', '.join(data['deps'])}" if data["deps"] else ""
+                    status_area.success(f"✅ **{task}** tamamlandı — {files_str}{deps_str}")
                     st.rerun()
 
                 elif etype == "approval_needed":
@@ -233,13 +200,11 @@ with right_col:
                                     with st.expander(f"📄 {f}"):
                                         st.code(
                                             fpath.read_text(encoding="utf-8"),
-                                            language=f.split(".")[-1],
+                                            language=f.split(".")[-1]
                                         )
 
                             if data.get("deps"):
-                                st.info(
-                                    f"📦 Eklenen bağımlılıklar: {', '.join(data['deps'])}"
-                                )
+                                st.info(f"📦 Eklenen bağımlılıklar: {', '.join(data['deps'])}")
 
                             c1, c2, c3 = st.columns(3)
                             approved = c1.button("✅ Onayla", type="primary")
