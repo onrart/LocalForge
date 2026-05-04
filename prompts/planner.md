@@ -82,3 +82,19 @@ Yanıtını TAM OLARAK şu formatta ver:
 - Her `src/` alt klasörü için `__init__.py` zorunlu
 - Servis katmanı (`service.py`) router'dan ÖNCE yazılmalı
 - `main.py` her zaman EN SON görev olmalı (readme hariç)
+
+## ZORUNLU requirements.txt
+
+FastAPI projeleri icin requirements.txt MUTLAKA su paketleri icermeli (01_proje_iskeleti gorevinde):
+
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+
+Bu paketleri eksik birakma.

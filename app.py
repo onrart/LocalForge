@@ -17,6 +17,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent))
 from ui.components.styles import inject_styles, forge_header
+from core.state_manager import init_session_state, reset_project
 
 inject_styles()
 
@@ -36,17 +37,14 @@ def save_config(config: dict):
     st.session_state.config = config
 
 
-# Session state
-for key, default in [
-    ("config", load_config()),
-    ("project_path", ""),
-    ("system_info", None),
-    ("requirements", None),
-    ("planning_done", False),
-    ("coding_done", False),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
+# Session state — state_manager ile kalıcı
+init_session_state(st)
+if "config" not in st.session_state:
+    st.session_state.config = load_config()
+if "system_info" not in st.session_state:
+    st.session_state.system_info = None
+if "requirements" not in st.session_state:
+    st.session_state.requirements = None
 
 cfg = st.session_state.config
 

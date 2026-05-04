@@ -18,6 +18,13 @@ from core.requirements_collector import (
     init_session_state,
     _generate_requirements_md,
 )
+from core.state_manager import (
+    init_session_state,
+    persist_project_path,
+    persist_planning_done,
+    persist_coding_done,
+    reset_project,
+)
 from core.llm_client import create_client
 from core.context_manager import ContextManager
 from core.template_manager import apply_template, build_placeholders, detect_template
@@ -67,7 +74,7 @@ with col2:
     if project_path_input and st.button("✅ Onayla"):
         p = Path(project_path_input)
         p.mkdir(parents=True, exist_ok=True)
-        st.session_state.project_path = str(p)
+        persist_project_path(st, str(p))
         st.rerun()
 
 if st.session_state.get("project_path"):
@@ -131,7 +138,7 @@ if completed_req:
 
     st.success("✅ Planlama tamamlandı!")
     st.session_state.requirements = completed_req
-    st.session_state.planning_done = True
+    persist_planning_done(st)
 
     st.divider()
 

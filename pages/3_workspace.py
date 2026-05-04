@@ -11,6 +11,13 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from ui.components.styles import inject_styles
+from core.state_manager import (
+    init_session_state,
+    persist_project_path,
+    persist_planning_done,
+    persist_coding_done,
+    reset_project,
+)
 from core.llm_client import create_client
 from core.context_manager import ContextManager
 from agents.coder_agent import CoderAgent
@@ -77,6 +84,7 @@ def render_task_list(container, ctx: ContextManager, active_task: str = ""):
     container.markdown("".join(html_parts), unsafe_allow_html=True)
 
 
+init_session_state(st)
 cfg = load_config()
 
 # ─── Kontroller ───
@@ -130,8 +138,7 @@ if st.session_state.get("coding_done"):
                 subprocess.Popen(["xdg-open", str(project_path)])
     with col3:
         if st.button("🔄 Yeni Proje", use_container_width=True):
-            for key in ["project_path", "requirements", "planning_done", "coding_done"]:
-                st.session_state.pop(key, None)
+            reset_project(st)
             st.switch_page("pages/2_requirements.py")
 
     st.divider()
@@ -337,8 +344,7 @@ with right_col:
                     break
 
                 elif etype == "session_done":
-                    st.session_state.coding_done = True
-                    st.session_state.coding_running = False
+                    persist_coding_done(st)
                     st.rerun()
                     break
 
