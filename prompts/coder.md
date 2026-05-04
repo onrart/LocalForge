@@ -193,4 +193,28 @@ from src.auth.models import User
 ```
 
 MEMORY.md'de "Mimari Kararlar" bölümüne bak — hangi modellerin nerede tanımlı olduğu yazılı.
-Eğer bir modele ihtiyacın varsa ve başka modülde tanımlıysa, sadece import et.
+E�er bir modele ihtiyacın varsa ve başka modülde tanımlıysa, sadece import et.
+
+### Her Dosya Ayrı Blokta Olmalı (KESİN KURAL)
+Her dosya KENDİ kod bloğu içinde olmalı. Asla iki dosyayı aynı bloğa yazma:
+
+```
+# ❌ YANLIŞ
+# Dosya: src/auth/models.py
+```python
+...models kodu...
+# Dosya: src/auth/schemas.py  ← BU YANLIŞ, blok içinde ikinci dosya!
+...schemas kodu...
+```
+
+# ✅ DOĞRU
+# Dosya: src/auth/models.py
+```python
+...models kodu...
+```
+
+# Dosya: src/auth/schemas.py
+```python
+...schemas kodu...
+```
+```
