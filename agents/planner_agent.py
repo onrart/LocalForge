@@ -157,6 +157,9 @@ class PlannerAgent:
         self.ctx.write_architecture(architecture)
         self.ctx.write_tasks(tasks)
 
+        # Model lokasyonlarını MEMORY.md'ye kaydet (duplicate önleme)
+        self._record_model_locations(architecture)
+
         task_count = tasks.count("- [ ]")
 
         return {
@@ -194,6 +197,7 @@ class PlannerAgent:
 
         self.ctx.write_architecture(architecture)
         self.ctx.write_tasks(tasks)
+        self._record_model_locations(architecture)
 
         task_count = tasks.count("- [ ]")
         yield f"\n\n✅ Planlama tamamlandı — {task_count} görev oluşturuldu."
@@ -213,6 +217,29 @@ class PlannerAgent:
 {summary}{template_note}
 
 Yanıtını ===ARCHITECTURE=== ve ===TASKS=== ayraçlarıyla böl."""
+
+    def _record_model_locations(self, architecture: str):
+        """
+        ARCHITECTURE.md'den model tanımlarını okuyup MEMORY.md'ye kaydeder.
+        Böylece coder agent hangi modelin nerede tanımlı olduğunu bilir.
+        """
+        import re
+
+        # models.py dosyalarını bul
+        model_files = re.findall(r"src/(\w+)/models\.py", architecture)
+
+        if not model_files:
+            return
+
+        lines = ["Tanımlı SQLAlchemy Modelleri (DUPLICATE OLUSTURMA, import et):"]
+        for module in model_files:
+            lines.append(f"  - src/{module}/models.py -> {module.capitalize()} modeli")
+        lines.append(
+            "Baska modulde kullanmak icin: from src.<modul>.models import <Model>"
+        )
+        note = "\n".join(lines)
+
+        self.ctx.append_to_memory("Mimari Kararlar", note)
 
     def get_task_details(self, task_name: str) -> str:
         """

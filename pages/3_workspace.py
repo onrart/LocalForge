@@ -28,41 +28,53 @@ def load_config() -> dict:
 
 def render_task_list(container, ctx: ContextManager, active_task: str = ""):
     """
-    Görev listesini verilen container'a render eder.
-    Kodlama sırasında her event'te çağrılarak canlı güncelleme sağlar.
+    Görev listesini tek HTML bloğu olarak render eder.
+    st.empty() container'ı birden fazla st.* çağrısını desteklemez,
+    bu yüzden tüm liste tek markdown çağrısıyla yazılır.
     """
     tasks = ctx.get_all_tasks()
     completed = sum(1 for t in tasks if t["done"])
     total = len(tasks)
 
-    with container:
-        if total == 0:
-            st.info("Görev listesi yüklenemedi.")
-            return
+    if total == 0:
+        container.markdown("*Görev listesi yüklenemedi.*")
+        return
 
-        pct = completed / total
-        st.progress(pct, text=f"{completed}/{total} tamamlandı")
-        st.markdown("")
+    pct = int((completed / total) * 100)
 
-        active_set = False
-        for task in tasks:
-            name = task["name"]
-            if task["done"]:
-                st.markdown(
-                    f'<div style="color:#22c55e;text-decoration:line-through;opacity:0.7;font-size:0.86rem;padding:2px 0;">✅ {name}</div>',
-                    unsafe_allow_html=True,
-                )
-            elif name == active_task or (not active_set and not task["done"]):
-                active_set = True
-                st.markdown(
-                    f'<div style="color:#f97316;font-weight:700;font-size:0.9rem;padding:4px 0;border-left:3px solid #f97316;padding-left:8px;margin:2px 0;">⚡ {name}</div>',
-                    unsafe_allow_html=True,
-                )
-            else:
-                st.markdown(
-                    f'<div style="color:#6b6b80;font-size:0.86rem;padding:2px 0;">○ {name}</div>',
-                    unsafe_allow_html=True,
-                )
+    # Progress bar HTML
+    html_parts = [f"""
+    <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="color:#6b6b80;font-size:0.75rem;">İlerleme</span>
+            <span style="color:#f97316;font-size:0.75rem;font-weight:700;">{completed}/{total}</span>
+        </div>
+        <div style="background:#1e1e28;border-radius:4px;height:6px;">
+            <div style="background:linear-gradient(90deg,#f97316,#fbbf24);width:{pct}%;height:6px;border-radius:4px;transition:width 0.3s ease;"></div>
+        </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+    """]
+
+    active_set = False
+    for task in tasks:
+        name = task["name"]
+        if task["done"]:
+            html_parts.append(
+                f'<div style="color:#22c55e;text-decoration:line-through;opacity:0.6;font-size:0.83rem;padding:2px 4px;">✅ {name}</div>'
+            )
+        elif name == active_task or (not active_set and not task["done"]):
+            active_set = True
+            html_parts.append(
+                f'<div style="color:#f97316;font-weight:700;font-size:0.88rem;padding:4px 8px;border-left:3px solid #f97316;background:#1e1e28;border-radius:0 6px 6px 0;margin:2px 0;">⚡ {name}</div>'
+            )
+        else:
+            html_parts.append(
+                f'<div style="color:#6b6b80;font-size:0.83rem;padding:2px 4px;">○ {name}</div>'
+            )
+
+    html_parts.append("</div>")
+    container.markdown("".join(html_parts), unsafe_allow_html=True)
 
 
 cfg = load_config()
@@ -164,25 +176,50 @@ with left_col:
     checkpoint_container = st.empty()
 
     def render_checkpoints(container):
+        """Checkpoint listesini salt HTML olarak render eder — widget yok, key çakışması yok."""
         checkpoints = ctx.get_checkpoints()
-        with container:
-            if checkpoints:
-                for cp in reversed(checkpoints[-5:]):  # Son 5
-                    col_a, col_b = st.columns([3, 1])
-                    with col_a:
-                        st.caption(f"✅ {cp['task']}")
-                    with col_b:
-                        if st.button("↩️", key=f"rb_{cp['task']}", help="Geri dön"):
-                            try:
-                                ctx.restore_checkpoint(cp["task"])
-                                st.success("↩️ Geri dönüldü!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Hata: {e}")
-            else:
-                st.caption("Henüz checkpoint yok.")
+        if not checkpoints:
+            container.markdown(
+                '<div style="color:#6b6b80;font-size:0.8rem;">Henüz checkpoint yok.</div>',
+                unsafe_allow_html=True,
+            )
+            return
+        html = '<div style="display:flex;flex-direction:column;gap:3px;">'
+        for cp in reversed(checkpoints[-8:]):
+            ts = (
+                cp.get("timestamp", "")[:16].replace("T", " ")
+                if cp.get("timestamp")
+                else ""
+            )
+            html += (
+                f'<div style="color:#22c55e;font-size:0.8rem;padding:2px 0;">'
+                f'✅ {cp["task"]}'
+                f'<span style="color:#6b6b80;font-size:0.7rem;margin-left:6px;">{ts}</span>'
+                f"</div>"
+            )
+        html += "</div>"
+        container.markdown(html, unsafe_allow_html=True)
 
     render_checkpoints(checkpoint_container)
+
+    # Rollback butonları — statik, key çakışması olmaz
+    checkpoints_static = ctx.get_checkpoints()
+    if checkpoints_static:
+        st.markdown("**Geri dön:**")
+        for cp in reversed(checkpoints_static[-5:]):
+            task_name = cp["task"]
+            if st.button(
+                f"↩️ {task_name[:20]}",
+                key=f"static_rb_{task_name}",
+                use_container_width=True,
+                help=f"Checkpoint: {task_name}",
+            ):
+                try:
+                    ctx.restore_checkpoint(task_name)
+                    st.success(f"↩️ {task_name}'e dönüldü!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Hata: {e}")
 
 # ─── SAĞ PANEL ───
 with right_col:

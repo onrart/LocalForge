@@ -178,3 +178,19 @@ Relationship tanımlarken karşı model henüz yazılmamışsa relationship'i yo
 ```python
 user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 ```
+
+### Duplicate Model Kuralı (ÇOK ÖNEMLİ)
+Başka bir modülde zaten tanımlı bir SQLAlchemy modeli ASLA yeniden yazma.
+Bunun yerine import et:
+
+```python
+# ❌ YANLIŞ - User'ı book/models.py içinde yeniden tanımlama
+class User(Base):
+    __tablename__ = "users"  # DUPLICATE TABLO HATASI!
+
+# ✅ DOĞRU - Zaten tanımlı modeli import et
+from src.auth.models import User
+```
+
+MEMORY.md'de "Mimari Kararlar" bölümüne bak — hangi modellerin nerede tanımlı olduğu yazılı.
+Eğer bir modele ihtiyacın varsa ve başka modülde tanımlıysa, sadece import et.
