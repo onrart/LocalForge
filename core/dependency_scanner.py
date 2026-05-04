@@ -72,6 +72,10 @@ IGNORE_MODULES = {
     "conftest",
     "setup",
     "manage",
+    "pytest",
+    "unittest",
+    "mock",
+    "fixtures",
     "__future__",
     "__init__",
 }
