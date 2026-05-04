@@ -122,12 +122,16 @@ if st.session_state.get("coding_done"):
     st.progress(1.0, text="Tüm görevler tamamlandı")
     st.divider()
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("✏️ Düzenlemeye Geç", type="primary", use_container_width=True):
+        if st.button("✏️ Düzenle", type="primary", use_container_width=True):
             st.switch_page("pages/4_editor.py")
     with col2:
-        if st.button("📁 Proje Klasörünü Aç", use_container_width=True):
+        if st.button("🧪 Test Et & Düzelt", use_container_width=True):
+            st.session_state.show_debug = True
+            st.rerun()
+    with col3:
+        if st.button("📁 Klasörü Aç", use_container_width=True):
             import subprocess, platform
 
             if platform.system() == "Windows":
@@ -136,12 +140,102 @@ if st.session_state.get("coding_done"):
                 subprocess.Popen(["open", str(project_path)])
             else:
                 subprocess.Popen(["xdg-open", str(project_path)])
-    with col3:
+    with col4:
         if st.button("🔄 Yeni Proje", use_container_width=True):
             reset_project(st)
             st.switch_page("pages/2_requirements.py")
 
     st.divider()
+
+    # ─── DEBUG BÖLÜMÜ ───
+    if st.session_state.get("show_debug"):
+        from core.test_runner import has_tests
+        from agents.debugger_agent import DebuggerAgent
+
+        st.markdown("## 🧪 Test & Hata Düzeltme")
+
+        if not has_tests(project_path):
+            st.warning(
+                "Projede test dosyası bulunamadı. (test_*.py formatında dosya olmalı)"
+            )
+        else:
+            coder_client = create_client(cfg, role="coder")
+            if not coder_client.is_alive():
+                st.error(f"❌ {cfg['backend']} bağlantısı kurulamadı.")
+            else:
+                debugger = DebuggerAgent(coder_client, ctx, project_path)
+                test_output_area = st.empty()
+                test_status_area = st.empty()
+                full_fix_output = ""
+
+                for event in debugger.run():
+                    etype = event.get("type", "")
+                    data = event.get("data", {})
+
+                    if etype == "test_start":
+                        test_status_area.info(
+                            f"🧪 Tur {data['round']} — Testler çalıştırılıyor..."
+                        )
+
+                    elif etype == "install_output" and data.get("output", "").strip():
+                        with st.expander("📦 Paket kurulum"):
+                            st.code(data["output"])
+
+                    elif etype == "test_output":
+                        p, f, e = data["passed"], data["failed"], data["errors"]
+                        color = "#22c55e" if f == 0 and e == 0 else "#ef4444"
+                        st.markdown(
+                            f'<div style="background:#1e1e28;border:1px solid {color};'
+                            f'border-radius:8px;padding:12px 16px;margin:8px 0;">'
+                            f'<span style="color:#22c55e;">✅ {p} geçti</span> &nbsp;'
+                            f'<span style="color:#ef4444;">❌ {f} başarısız</span> &nbsp;'
+                            f'<span style="color:#f97316;">⚠️ {e} hata</span>'
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+                        with st.expander("📋 Test çıktısı", expanded=(f > 0 or e > 0)):
+                            st.code(data["output"], language="text")
+
+                    elif etype == "all_passed":
+                        test_status_area.success(
+                            f"🎉 Tüm testler geçti! ({data['passed']} test, {data['rounds']} turda)"
+                        )
+
+                    elif etype == "failures_found":
+                        test_status_area.warning(
+                            f"🔧 {data['count']} hata bulundu, düzeltiliyor... (Tur {data['round']}/3)"
+                        )
+
+                    elif etype == "fixing":
+                        test_status_area.info(
+                            f"🔧 Düzeltiliyor: `{data['file']}` — {data['error'][:60]}"
+                        )
+
+                    elif etype == "fix_token":
+                        full_fix_output += data["token"]
+                        test_output_area.code(
+                            full_fix_output[-2000:], language="python"
+                        )
+
+                    elif etype == "fix_applied":
+                        test_status_area.success(f"✅ Düzeltildi: `{data['file']}`")
+                        full_fix_output = ""
+                        test_output_area.empty()
+
+                    elif etype == "fix_failed":
+                        st.error(
+                            f"❌ Düzeltilemedi: `{data['file']}` — {data['error'][:80]}"
+                        )
+
+                    elif etype == "max_retries":
+                        test_status_area.error(
+                            f"⏰ Max tur aşıldı. Düzeltilen: {data['fixed']}, Kalan: {data['unfixed']}"
+                        )
+
+        if st.button("✖️ Kapat", key="close_debug"):
+            st.session_state.show_debug = False
+            st.rerun()
+        st.divider()
 
     c1, c2 = st.columns(2)
     with c1:

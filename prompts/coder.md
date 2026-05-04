@@ -293,3 +293,12 @@ from src.{modul}.schemas import {Model}Create, {Model}Update
 
 Bu import'lardan herhangi biri eksikse kod CALISMAZINMA.
 Yazdigini dosyada kullanilan her sembol mutlaka import edilmeli.
+
+### datetime KULLANIMI (KESİN KURAL)
+DateTime kolonu olan HER models.py dosyasında bu import ZORUNLU:
+
+```python
+from datetime import datetime  # BU SATIR OLMADAN datetime.utcnow CALISMAZINMA
+```
+
+Kontrol: Kodunda `datetime.utcnow` veya `datetime.now` varsa yukarıdaki import MUTLAKA olmalı.

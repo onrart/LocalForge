@@ -65,17 +65,13 @@ def init_session_state(st) -> None:
             st.session_state.planning_done = False
 
     if "coding_done" not in st.session_state:
-        # Proje klasörü varsa ve tüm görevler tamamlandıysa coding_done=True
+        # Sadece config.json'da explicit olarak kaydedilmişse True say
+        # TASKS.md'den otomatik tespit etme — yanlış proje okuyabilir
         project_path = st.session_state.get("project_path", "")
-        if project_path:
-            tasks_file = Path(project_path) / ".agent" / "TASKS.md"
-            if tasks_file.exists():
-                content = tasks_file.read_text(encoding="utf-8")
-                has_pending = "- [ ]" in content
-                has_done = "- [x]" in content
-                st.session_state.coding_done = has_done and not has_pending
-            else:
-                st.session_state.coding_done = False
+        saved_done = cfg.get("coding_done_project", "")
+        # Aynı proje için daha önce coding_done kaydedildiyse True
+        if project_path and project_path == saved_done:
+            st.session_state.coding_done = True
         else:
             st.session_state.coding_done = False
 
@@ -110,9 +106,13 @@ def persist_planning_done(st) -> None:
 
 
 def persist_coding_done(st) -> None:
-    """Coding tamamlandığını işaretle."""
+    """Coding tamamlandığını işaretle — proje yolu ile birlikte kaydet."""
     st.session_state.coding_done = True
     st.session_state.coding_running = False
+    # Hangi projenin tamamlandığını config.json'a kaydet
+    cfg = load_config()
+    cfg["coding_done_project"] = st.session_state.get("project_path", "")
+    save_config(cfg)
 
 
 def reset_project(st) -> None:
@@ -129,4 +129,5 @@ def reset_project(st) -> None:
 
     cfg = load_config()
     cfg["last_project"] = ""
+    cfg["coding_done_project"] = ""
     save_config(cfg)
