@@ -1,6 +1,5 @@
 """
 LocalForge — Sayfa 3: Çalışma Alanı
-Coder ajanını çalıştırır, görev takibi, canlı çıktı, checkpoint geçmişi.
 """
 
 import json
@@ -51,6 +50,57 @@ project_name = (
 st.caption(f"Proje: **{project_name}** | `{project_path}`")
 st.divider()
 
+# ─── Tamamlanma Ekranı ───
+if st.session_state.get("coding_done"):
+    all_tasks = ctx.get_all_tasks()
+    total = len(all_tasks)
+    done = sum(1 for t in all_tasks if t["done"])
+
+    st.success(f"🎉 Kodlama tamamlandı! **{done}/{total}** görev başarıyla üretildi.")
+    st.progress(1.0, text="Tüm görevler tamamlandı")
+    st.divider()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("✏️ Düzenlemeye Geç", type="primary", use_container_width=True):
+            st.switch_page("pages/4_editor.py")
+    with col2:
+        if st.button("📁 Proje Klasörünü Aç", use_container_width=True):
+            import subprocess, platform
+
+            if platform.system() == "Windows":
+                subprocess.Popen(f'explorer "{project_path}"')
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", str(project_path)])
+            else:
+                subprocess.Popen(["xdg-open", str(project_path)])
+    with col3:
+        if st.button("🔄 Yeni Proje", use_container_width=True):
+            for key in ["project_path", "requirements", "planning_done", "coding_done"]:
+                st.session_state.pop(key, None)
+            st.switch_page("pages/2_requirements.py")
+
+    st.divider()
+
+    # Tamamlanan görevler
+    st.markdown("### 📋 Tamamlanan Görevler")
+    for task in all_tasks:
+        icon = "✅" if task["done"] else "❌"
+        st.markdown(f"{icon} {task['name']}")
+
+    # Üretilen dosyalar
+    st.divider()
+    st.markdown("### 📁 Üretilen Dosyalar")
+    all_files = [
+        str(f.relative_to(project_path))
+        for f in sorted(project_path.rglob("*"))
+        if f.is_file() and ".agent" not in f.parts and "__pycache__" not in f.parts
+    ]
+    for f in all_files:
+        st.caption(f"📄 {f}")
+
+    st.stop()
+
 # ─── Layout ───
 left_col, right_col = st.columns([1, 2])
 
@@ -58,7 +108,6 @@ left_col, right_col = st.columns([1, 2])
 with left_col:
     st.markdown("### 📋 Görevler")
 
-    # Görev listesini her render'da taze oku
     all_tasks = ctx.get_all_tasks()
     completed_count = sum(1 for t in all_tasks if t["done"])
     total_count = len(all_tasks)
@@ -69,30 +118,26 @@ with left_col:
             text=f"{completed_count}/{total_count} tamamlandı",
         )
         st.markdown("")
+
+        active_set = False
         for task in all_tasks:
             if task["done"]:
                 st.markdown(f"✅ ~~{task['name']}~~")
+            elif not active_set:
+                st.markdown(f"⚡ **{task['name']}**")
+                active_set = True
             else:
-                st.markdown(f"⏳ **{task['name']}**")
-                break  # Sadece aktif görevi bold göster
-        # Kalanları normal göster
-        active_found = False
-        for task in all_tasks:
-            if not active_found and not task["done"]:
-                active_found = True
-                continue
-            if not task["done"]:
                 st.markdown(f"○ {task['name']}")
     else:
         st.info("Görev listesi yüklenemedi.")
 
     st.divider()
     mode_label = "✋ Onay Modu" if approval_mode else "🤖 Otomatik Mod"
-    st.markdown(f"**Mod:** {mode_label}")
+    st.caption(f"**Mod:** {mode_label}")
 
     st.divider()
 
-    # ─── Checkpoints ───
+    # Checkpoints
     st.markdown("### ⏪ Checkpoints")
     checkpoints = ctx.get_checkpoints()
     if checkpoints:
@@ -104,7 +149,7 @@ with left_col:
                 if st.button("↩️", key=f"rb_{cp['task']}", help="Geri dön"):
                     try:
                         ctx.restore_checkpoint(cp["task"])
-                        st.success(f"↩️ {cp['task']}'e dönüldü!")
+                        st.success(f"↩️ Geri dönüldü!")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Hata: {e}")
@@ -138,7 +183,6 @@ with right_col:
     output_area = st.empty()
     status_area = st.empty()
 
-    # Durdur sinyali
     if stop_btn:
         st.session_state.stop_requested = True
 
@@ -169,7 +213,6 @@ with right_col:
             event = next(runner)
 
             while True:
-                # Durdurma sinyali kontrolü
                 if st.session_state.get("stop_requested", False):
                     agent.stop()
 
@@ -196,9 +239,7 @@ with right_col:
                     )
 
                 elif etype == "retry":
-                    status_area.warning(
-                        f"🔄 Düzeltme deneniyor ({data['attempt']}/3)..."
-                    )
+                    status_area.warning(f"🔄 Düzeltiliyor ({data['attempt']}/3)...")
 
                 elif etype == "syntax_failed":
                     status_area.error(f"❌ {data['message']}")
@@ -217,16 +258,15 @@ with right_col:
 
                 elif etype == "stopped":
                     status_area.warning("⏹️ Durduruldu.")
+                    st.session_state.coding_running = False
                     break
 
                 elif etype == "session_done":
-                    status_area.success("🎉 Tüm görevler tamamlandı!")
                     st.session_state.coding_done = True
                     st.session_state.coding_running = False
-                    st.balloons()
+                    st.rerun()  # Tamamlanma ekranını göster
                     break
 
-                # Approval modu
                 elif (
                     etype == "approval_needed" and data.get("action") == "approve_task"
                 ):
@@ -245,7 +285,7 @@ with right_col:
                             st.info(f"📦 {', '.join(data['deps'])}")
                         c1, c2, c3 = st.columns(3)
                         if c1.button("✅ Onayla", type="primary", key=f"ap_{task}"):
-                            pass  # devam
+                            pass
                         if c3.button("⏭️ Atla", key=f"sk_{task}"):
                             st.session_state.skip_task = True
 
@@ -260,13 +300,12 @@ with right_col:
                     else:
                         event = next(runner)
                 except StopIteration:
+                    st.session_state.coding_running = False
                     break
 
         except Exception as e:
             status_area.error(f"❌ Beklenmeyen hata: {e}")
             import traceback
 
-            st.code(traceback.format_exc())
-
-        st.session_state.coding_running = False
-        st.rerun()
+            output_area.code(traceback.format_exc())
+            st.session_state.coding_running = False

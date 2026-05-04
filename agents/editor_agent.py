@@ -11,13 +11,18 @@ from typing import Generator
 from core.llm_client import LLMClient
 from core.context_manager import ContextManager
 from core.syntax_validator import validate
-from core.file_writer import parse_llm_output, write_file, _generate_diff, summarize_diff
+from core.file_writer import (
+    parse_llm_output,
+    write_file,
+    _generate_diff,
+    summarize_diff,
+)
 
 
 @dataclass
 class EditRequest:
-    instruction: str        # Kullanıcının doğal dil isteği
-    target_file: str        # Düzenlenecek dosya yolu (göreli)
+    instruction: str  # Kullanıcının doğal dil isteği
+    target_file: str  # Düzenlenecek dosya yolu (göreli)
     context_hint: str = ""  # Ek bağlam (opsiyonel)
 
 
@@ -29,7 +34,7 @@ class EditResult:
     diff_summary: dict = None
     new_content: str = ""
     error: str = ""
-    change_summary: str = ""   # LLM'in ürettiği değişiklik özeti
+    change_summary: str = ""  # LLM'in ürettiği değişiklik özeti
 
     def __post_init__(self):
         if self.diff_summary is None:
@@ -160,7 +165,9 @@ class EditorAgent:
             # MEMORY.md'ye düzenleme notu
             diff_s = result.diff_summary
             summary = f"+{diff_s['added']}/-{diff_s['removed']} satır"
-            self.ctx.record_manual_edit(result.file_path, f"{result.change_summary} ({summary})")
+            self.ctx.record_manual_edit(
+                result.file_path, f"{result.change_summary} ({summary})"
+            )
             return True
 
         return False
@@ -205,7 +212,9 @@ class EditorAgent:
         memory: str,
         project: str,
     ) -> str:
-        context_section = f"\n### Ek Bağlam\n{request.context_hint}" if request.context_hint else ""
+        context_section = (
+            f"\n### Ek Bağlam\n{request.context_hint}" if request.context_hint else ""
+        )
 
         return f"""## Proje
 {project}
@@ -238,3 +247,76 @@ Sonra '# Dosya: {request.target_file}' başlığıyla dosyanın tamamını ver."
                     summary_lines.append(line.strip())
             return " ".join(summary_lines[:2])
         return "Düzenleme yapıldı."
+
+    def edit_sync(self, request: EditRequest) -> tuple[str, "EditResult"]:
+        """
+        Streaming olmayan senkron düzenleme.
+        Streamlit UI için güvenilir — (full_response, EditResult) döner.
+        """
+        file_path = self.project_path / request.target_file
+        if not file_path.exists():
+            return "", EditResult(
+                success=False,
+                file_path=request.target_file,
+                error=f"Dosya bulunamadı: {request.target_file}",
+            )
+
+        old_content = file_path.read_text(encoding="utf-8")
+        memory = self.ctx.read_file("MEMORY.md")
+        project = self.ctx.read_file("PROJECT.md")
+
+        user_message = self._build_user_message(
+            request=request,
+            old_content=old_content,
+            memory=memory,
+            project=project,
+        )
+
+        # Senkron LLM çağrısı
+        response = self.client.complete(
+            system_prompt=self.system_prompt,
+            user_message=user_message,
+            max_tokens=2048,
+            temperature=0.2,
+        )
+
+        if not response.success:
+            return "", EditResult(
+                success=False,
+                file_path=request.target_file,
+                error=response.error,
+            )
+
+        full_response = response.content
+        parsed_files = parse_llm_output(full_response)
+
+        if not parsed_files:
+            return full_response, EditResult(
+                success=False,
+                file_path=request.target_file,
+                error="LLM dosya bloğu üretmedi.",
+            )
+
+        parsed = parsed_files[0]
+        change_summary = self._extract_summary(full_response)
+
+        validation = validate(parsed.path, parsed.content)
+        if not validation.valid:
+            return full_response, EditResult(
+                success=False,
+                file_path=request.target_file,
+                error=f"Syntax hatası: {validation.error}",
+                new_content=parsed.content,
+            )
+
+        diff = _generate_diff(old_content, parsed.content, parsed.path)
+        diff_summary = summarize_diff(diff)
+
+        return full_response, EditResult(
+            success=True,
+            file_path=parsed.path,
+            diff=diff,
+            diff_summary=diff_summary,
+            new_content=parsed.content,
+            change_summary=change_summary,
+        )
