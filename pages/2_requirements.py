@@ -11,6 +11,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from ui.components.styles import inject_styles, forge_header, forge_task_item
 from core.requirements_collector import (
     ProjectRequirements,
     render_collection_form,
@@ -33,6 +34,8 @@ def load_config() -> dict:
 
 cfg = load_config()
 init_session_state(st)
+
+inject_styles()
 
 st.markdown("# 📋 Proje Tanımlama")
 st.caption("Projenizi tanımlayın, ajan mimariyi ve görev listesini otomatik oluşturur.")

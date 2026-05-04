@@ -10,6 +10,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from ui.components.styles import inject_styles, forge_header, forge_task_item
 from core.system_scanner import (
     scan,
     get_installed_ollama_models,
@@ -39,6 +40,8 @@ def save_config(cfg: dict):
     )
     st.session_state.config = cfg
 
+
+inject_styles()
 
 st.markdown("# 🖥️ Kurulum")
 st.caption("Sisteminizi tarayın, backend ve model seçimlerini yapın.")

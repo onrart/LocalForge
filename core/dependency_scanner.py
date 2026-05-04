@@ -68,6 +68,10 @@ IGNORE_MODULES = {
     "product",
     "order",
     "payment",
+    "main",
+    "conftest",
+    "setup",
+    "manage",
     "__future__",
     "__init__",
 }

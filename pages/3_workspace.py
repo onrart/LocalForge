@@ -10,9 +10,12 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from ui.components.styles import inject_styles
 from core.llm_client import create_client
 from core.context_manager import ContextManager
 from agents.coder_agent import CoderAgent
+
+inject_styles()
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 
@@ -21,6 +24,45 @@ def load_config() -> dict:
     if CONFIG_PATH.exists():
         return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     return {}
+
+
+def render_task_list(container, ctx: ContextManager, active_task: str = ""):
+    """
+    Görev listesini verilen container'a render eder.
+    Kodlama sırasında her event'te çağrılarak canlı güncelleme sağlar.
+    """
+    tasks = ctx.get_all_tasks()
+    completed = sum(1 for t in tasks if t["done"])
+    total = len(tasks)
+
+    with container:
+        if total == 0:
+            st.info("Görev listesi yüklenemedi.")
+            return
+
+        pct = completed / total
+        st.progress(pct, text=f"{completed}/{total} tamamlandı")
+        st.markdown("")
+
+        active_set = False
+        for task in tasks:
+            name = task["name"]
+            if task["done"]:
+                st.markdown(
+                    f'<div style="color:#22c55e;text-decoration:line-through;opacity:0.7;font-size:0.86rem;padding:2px 0;">✅ {name}</div>',
+                    unsafe_allow_html=True,
+                )
+            elif name == active_task or (not active_set and not task["done"]):
+                active_set = True
+                st.markdown(
+                    f'<div style="color:#f97316;font-weight:700;font-size:0.9rem;padding:4px 0;border-left:3px solid #f97316;padding-left:8px;margin:2px 0;">⚡ {name}</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<div style="color:#6b6b80;font-size:0.86rem;padding:2px 0;">○ {name}</div>',
+                    unsafe_allow_html=True,
+                )
 
 
 cfg = load_config()
@@ -82,22 +124,21 @@ if st.session_state.get("coding_done"):
 
     st.divider()
 
-    # Tamamlanan görevler
-    st.markdown("### 📋 Tamamlanan Görevler")
-    for task in all_tasks:
-        icon = "✅" if task["done"] else "❌"
-        st.markdown(f"{icon} {task['name']}")
-
-    # Üretilen dosyalar
-    st.divider()
-    st.markdown("### 📁 Üretilen Dosyalar")
-    all_files = [
-        str(f.relative_to(project_path))
-        for f in sorted(project_path.rglob("*"))
-        if f.is_file() and ".agent" not in f.parts and "__pycache__" not in f.parts
-    ]
-    for f in all_files:
-        st.caption(f"📄 {f}")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("### 📋 Görevler")
+        for task in all_tasks:
+            icon = "✅" if task["done"] else "❌"
+            st.markdown(f"{icon} {task['name']}")
+    with c2:
+        st.markdown("### 📁 Üretilen Dosyalar")
+        all_files = [
+            str(f.relative_to(project_path))
+            for f in sorted(project_path.rglob("*"))
+            if f.is_file() and ".agent" not in f.parts and "__pycache__" not in f.parts
+        ]
+        for f in all_files:
+            st.caption(f"📄 {f}")
 
     st.stop()
 
@@ -108,28 +149,9 @@ left_col, right_col = st.columns([1, 2])
 with left_col:
     st.markdown("### 📋 Görevler")
 
-    all_tasks = ctx.get_all_tasks()
-    completed_count = sum(1 for t in all_tasks if t["done"])
-    total_count = len(all_tasks)
-
-    if total_count > 0:
-        st.progress(
-            completed_count / total_count,
-            text=f"{completed_count}/{total_count} tamamlandı",
-        )
-        st.markdown("")
-
-        active_set = False
-        for task in all_tasks:
-            if task["done"]:
-                st.markdown(f"✅ ~~{task['name']}~~")
-            elif not active_set:
-                st.markdown(f"⚡ **{task['name']}**")
-                active_set = True
-            else:
-                st.markdown(f"○ {task['name']}")
-    else:
-        st.info("Görev listesi yüklenemedi.")
+    # Canlı güncellenebilir container
+    task_list_container = st.empty()
+    render_task_list(task_list_container, ctx)
 
     st.divider()
     mode_label = "✋ Onay Modu" if approval_mode else "🤖 Otomatik Mod"
@@ -137,24 +159,30 @@ with left_col:
 
     st.divider()
 
-    # Checkpoints
+    # Checkpoints — canlı güncellenebilir
     st.markdown("### ⏪ Checkpoints")
-    checkpoints = ctx.get_checkpoints()
-    if checkpoints:
-        for cp in reversed(checkpoints):
-            col_a, col_b = st.columns([3, 1])
-            with col_a:
-                st.caption(f"✅ {cp['task']}")
-            with col_b:
-                if st.button("↩️", key=f"rb_{cp['task']}", help="Geri dön"):
-                    try:
-                        ctx.restore_checkpoint(cp["task"])
-                        st.success(f"↩️ Geri dönüldü!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Hata: {e}")
-    else:
-        st.caption("Henüz checkpoint yok.")
+    checkpoint_container = st.empty()
+
+    def render_checkpoints(container):
+        checkpoints = ctx.get_checkpoints()
+        with container:
+            if checkpoints:
+                for cp in reversed(checkpoints[-5:]):  # Son 5
+                    col_a, col_b = st.columns([3, 1])
+                    with col_a:
+                        st.caption(f"✅ {cp['task']}")
+                    with col_b:
+                        if st.button("↩️", key=f"rb_{cp['task']}", help="Geri dön"):
+                            try:
+                                ctx.restore_checkpoint(cp["task"])
+                                st.success("↩️ Geri dönüldü!")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Hata: {e}")
+            else:
+                st.caption("Henüz checkpoint yok.")
+
+    render_checkpoints(checkpoint_container)
 
 # ─── SAĞ PANEL ───
 with right_col:
@@ -207,6 +235,7 @@ with right_col:
         )
 
         live_output = ""
+        current_task = ""
         runner = agent.run()
 
         try:
@@ -224,10 +253,14 @@ with right_col:
                     status_area.info(f"🚀 Kodlama başlıyor — {data['total']} görev")
 
                 elif etype == "task_start":
+                    current_task = task
                     live_output = ""
+                    output_area.empty()
                     status_area.info(
                         f"⚡ [{data['index']}/{data['total']}] **{task}** işleniyor..."
                     )
+                    # Sol paneli güncelle — aktif görevi vurgula
+                    render_task_list(task_list_container, ctx, active_task=task)
 
                 elif etype == "token":
                     live_output += data["token"]
@@ -252,19 +285,24 @@ with right_col:
                     status_area.success(f"✅ **{task}** — {files_str}{deps_str}")
                     live_output = ""
                     output_area.empty()
+                    # Sol paneli güncelle — tamamlanan görev işaretlendi
+                    render_task_list(task_list_container, ctx, active_task="")
+                    # Checkpoint listesini güncelle
+                    render_checkpoints(checkpoint_container)
 
                 elif etype == "error":
                     status_area.error(f"❌ Hata ({task}): {data['error']}")
 
                 elif etype == "stopped":
                     status_area.warning("⏹️ Durduruldu.")
+                    render_task_list(task_list_container, ctx)
                     st.session_state.coding_running = False
                     break
 
                 elif etype == "session_done":
                     st.session_state.coding_done = True
                     st.session_state.coding_running = False
-                    st.rerun()  # Tamamlanma ekranını göster
+                    st.rerun()
                     break
 
                 elif (
@@ -295,10 +333,11 @@ with right_col:
                         "skip" if st.session_state.get("skip_task") else "approve"
                     )
                     st.session_state.skip_task = False
-                    if etype == "waiting_approval":
-                        event = runner.send(approval)
-                    else:
-                        event = next(runner)
+                    event = (
+                        runner.send(approval)
+                        if etype == "waiting_approval"
+                        else next(runner)
+                    )
                 except StopIteration:
                     st.session_state.coding_running = False
                     break

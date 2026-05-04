@@ -152,3 +152,29 @@ SADECE şu formattan oluşmalı, başka HİÇBİR ŞEY yazma:
 - `__init__.py` dosyaları boş olabilir ama MUTLAKA üretilmeli
 - Pydantic v2 kullan: `model_dump()` değil `dict()` değil → `model_dump()`
 - SQLAlchemy 2.0 sözdizimi kullan
+
+## SIKÇA YAPILAN HATALAR (BUNLARDAN KAÇIN)
+
+### requirements.txt kirlenmesi
+Bağımlılık tarayıcısı import'ları okur. Şu isimleri asla import etme:
+- `main`, `app`, `run` → bunlar modül değil dosya adı
+- `conftest`, `setup` → test altyapısı
+- Kendi yazdığın modüller (src.*, auth.*, book.* vb.)
+
+### Eksik datetime import
+`datetime` kullanıyorsan şunu ekle:
+```python
+from datetime import datetime
+```
+
+### Tanımsız relationship
+Relationship tanımlarken karşı model henüz yazılmamışsa relationship'i yorum satırına al:
+```python
+# borrowed_by = relationship("Borrow", back_populates="book")  # TODO: Borrow modeli yazılınca aç
+```
+
+### ForeignKey eksikliği
+İlişkili model varsa ForeignKey zorunlu:
+```python
+user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+```

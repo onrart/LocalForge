@@ -1,5 +1,5 @@
 """
-LocalForge — Sayfa 4: Düzenleme
+LocalForge — Sayfa 3: Çalışma Alanı
 """
 
 import json
@@ -10,9 +10,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from ui.components.styles import inject_styles, forge_header, forge_task_item
 from core.llm_client import create_client
 from core.context_manager import ContextManager
-from agents.editor_agent import EditorAgent, EditRequest, EditResult
+from agents.coder_agent import CoderAgent
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 
@@ -25,228 +26,289 @@ def load_config() -> dict:
 
 cfg = load_config()
 
+# ─── Kontroller ───
 if not st.session_state.get("project_path"):
     st.error("❌ Önce Proje sayfasından projeyi tanımlayın.")
     if st.button("Proje Sayfasına Git"):
         st.switch_page("pages/2_requirements.py")
     st.stop()
 
+if not st.session_state.get("planning_done"):
+    st.error("❌ Önce planlama tamamlanmalı.")
+    if st.button("Planlama Sayfasına Git"):
+        st.switch_page("pages/2_requirements.py")
+    st.stop()
+
 project_path = Path(st.session_state.project_path)
 ctx = ContextManager(project_path)
+approval_mode = cfg.get("approval_mode", False)
 
 # ─── Başlık ───
-st.markdown("# ✏️ Düzenleme")
+inject_styles()
+
+st.markdown("# ⚡ Çalışma Alanı")
 project_name = (
     ctx.read_file("PROJECT.md").split("\n")[0].replace("# Proje:", "").strip()
 )
 st.caption(f"Proje: **{project_name}** | `{project_path}`")
 st.divider()
 
-# Geri dön butonu
-col_back, col_space = st.columns([1, 5])
-with col_back:
-    if st.button("← Çalışma Alanı"):
-        st.switch_page("pages/3_workspace.py")
+# ─── Tamamlanma Ekranı ───
+if st.session_state.get("coding_done"):
+    all_tasks = ctx.get_all_tasks()
+    total = len(all_tasks)
+    done = sum(1 for t in all_tasks if t["done"])
 
-st.divider()
+    st.success(f"🎉 Kodlama tamamlandı! **{done}/{total}** görev başarıyla üretildi.")
+    st.progress(1.0, text="Tüm görevler tamamlandı")
+    st.divider()
 
-# ─── Dosya Ağacı ───
-all_files = [
-    str(f.relative_to(project_path))
-    for f in sorted(project_path.rglob("*"))
-    if f.is_file() and ".agent" not in f.parts and "__pycache__" not in f.parts
-]
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("✏️ Düzenlemeye Geç", type="primary", use_container_width=True):
+            st.switch_page("pages/4_editor.py")
+    with col2:
+        if st.button("📁 Proje Klasörünü Aç", use_container_width=True):
+            import subprocess, platform
 
-if not all_files:
-    st.info("Henüz dosya üretilmedi. Önce kodlama aşamasını tamamlayın.")
-    if st.button("Çalışma Alanına Git"):
-        st.switch_page("pages/3_workspace.py")
+            if platform.system() == "Windows":
+                subprocess.Popen(f'explorer "{project_path}"')
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", str(project_path)])
+            else:
+                subprocess.Popen(["xdg-open", str(project_path)])
+    with col3:
+        if st.button("🔄 Yeni Proje", use_container_width=True):
+            for key in ["project_path", "requirements", "planning_done", "coding_done"]:
+                st.session_state.pop(key, None)
+            st.switch_page("pages/2_requirements.py")
+
+    st.divider()
+
+    # Tamamlanan görevler
+    st.markdown("### 📋 Tamamlanan Görevler")
+    for task in all_tasks:
+        icon = "✅" if task["done"] else "❌"
+        st.markdown(f"{icon} {task['name']}")
+
+    # Üretilen dosyalar
+    st.divider()
+    st.markdown("### 📁 Üretilen Dosyalar")
+    all_files = [
+        str(f.relative_to(project_path))
+        for f in sorted(project_path.rglob("*"))
+        if f.is_file() and ".agent" not in f.parts and "__pycache__" not in f.parts
+    ]
+    for f in all_files:
+        st.caption(f"📄 {f}")
+
     st.stop()
 
-# Dosya seçici — sol sidebar gibi iki kolon
-file_col, content_col = st.columns([1, 3])
+# ─── Layout ───
+left_col, right_col = st.columns([1, 2])
 
-with file_col:
-    st.markdown("### 📁 Dosyalar")
+# ─── SOL PANEL ───
+with left_col:
+    st.markdown("### 📋 Görevler")
 
-    # Uzantıya göre ikon
-    def file_icon(f: str) -> str:
-        ext = Path(f).suffix
-        icons = {
-            ".py": "🐍",
-            ".json": "📋",
-            ".md": "📝",
-            ".txt": "📄",
-            ".html": "🌐",
-            ".css": "🎨",
-            ".ts": "🔷",
-            ".tsx": "🔷",
-            ".js": "🟨",
-        }
-        return icons.get(ext, "📄")
+    all_tasks = ctx.get_all_tasks()
+    completed_count = sum(1 for t in all_tasks if t["done"])
+    total_count = len(all_tasks)
 
-    selected_file = st.radio(
-        "Dosya seç",
-        options=all_files,
-        format_func=lambda x: f"{file_icon(x)} {x}",
-        label_visibility="collapsed",
-    )
-
-with content_col:
-    if not selected_file:
-        st.info("Sol panelden bir dosya seçin.")
-        st.stop()
-
-    file_path = project_path / selected_file
-    current_content = (
-        file_path.read_text(encoding="utf-8") if file_path.exists() else ""
-    )
-
-    ext = Path(selected_file).suffix.lstrip(".")
-    lang_map = {
-        "py": "python",
-        "js": "javascript",
-        "ts": "typescript",
-        "json": "json",
-        "md": "markdown",
-        "html": "html",
-        "css": "css",
-        "txt": "text",
-    }
-    lang = lang_map.get(ext, "text")
-
-    tab1, tab2 = st.tabs(["🤖 LLM ile Düzenle", "✍️ Direkt Düzenle"])
-
-    # ── Tab 1: LLM ile Düzenleme ──
-    with tab1:
-        st.markdown(f"**Seçili dosya:** `{selected_file}`")
-
-        instruction = st.text_area(
-            "Ne değiştirilsin?",
-            placeholder="örn: Login endpoint'ine rate limiting ekle, dakikada max 5 istek olsun",
-            height=100,
-            key="llm_instruction",
+    if total_count > 0:
+        st.progress(
+            completed_count / total_count,
+            text=f"{completed_count}/{total_count} tamamlandı",
         )
+        st.markdown("")
 
-        context_hint = st.text_input(
-            "Ek bağlam (opsiyonel)",
-            placeholder="örn: slowapi kütüphanesi kullanılsın",
-            key="llm_context_hint",
-        )
-
-        edit_btn = st.button(
-            "🤖 Düzenle",
-            type="primary",
-            disabled=not instruction.strip(),
-            use_container_width=True,
-        )
-
-        if edit_btn and instruction.strip():
-            coder_client = create_client(cfg, role="coder")
-
-            if not coder_client.is_alive():
-                st.error(f"❌ {cfg['backend']} bağlantısı kurulamadı.")
-                st.stop()
-
-            editor = EditorAgent(coder_client, ctx, project_path)
-            request = EditRequest(
-                instruction=instruction,
-                target_file=selected_file,
-                context_hint=context_hint,
-            )
-
-            # Streaming çıktı
-            output_placeholder = st.empty()
-            with st.spinner("🤖 LLM düzenleme yapıyor..."):
-                full_response, edit_result = editor.edit_sync(request)
-                if full_response:
-                    output_placeholder.code(full_response[-2000:], language=lang)
-
-            output_placeholder.empty()
-
-            # Sonuç işle
-            if edit_result is None:
-                st.error("❌ LLM yanıtı parse edilemedi.")
-            elif not edit_result.success:
-                st.error(f"❌ Düzenleme başarısız: {edit_result.error}")
-                if edit_result.new_content:
-                    with st.expander("Üretilen kod (hatalı)"):
-                        st.code(edit_result.new_content, language=lang)
+        active_set = False
+        for task in all_tasks:
+            if task["done"]:
+                st.markdown(f"✅ ~~{task['name']}~~")
+            elif not active_set:
+                st.markdown(f"⚡ **{task['name']}**")
+                active_set = True
             else:
-                st.success(f"✅ {edit_result.change_summary}")
+                st.markdown(f"○ {task['name']}")
+    else:
+        st.info("Görev listesi yüklenemedi.")
 
-                # Metrikler
-                d = edit_result.diff_summary
-                m1, m2 = st.columns(2)
-                m1.metric("Eklenen", f"+{d['added']} satır", delta=d["added"])
-                m2.metric(
-                    "Silinen",
-                    f"-{d['removed']} satır",
-                    delta=-d["removed"],
-                    delta_color="inverse",
-                )
+    st.divider()
+    mode_label = "✋ Onay Modu" if approval_mode else "🤖 Otomatik Mod"
+    st.caption(f"**Mod:** {mode_label}")
 
-                # Diff
-                with st.expander("📋 Diff göster", expanded=True):
-                    st.code(edit_result.diff, language="diff")
+    st.divider()
 
-                # Onayla / Reddet
-                c1, c2 = st.columns(2)
-                with c1:
-                    if st.button(
-                        "✅ Onayla ve Kaydet", type="primary", use_container_width=True
-                    ):
-                        if editor.apply_edit(edit_result):
-                            st.success("✅ Kaydedildi! MEMORY.md güncellendi.")
-                            st.rerun()
-                        else:
-                            st.error("❌ Kaydetme başarısız.")
-                with c2:
-                    if st.button("❌ Reddet", use_container_width=True):
+    # Checkpoints
+    st.markdown("### ⏪ Checkpoints")
+    checkpoints = ctx.get_checkpoints()
+    if checkpoints:
+        for cp in reversed(checkpoints):
+            col_a, col_b = st.columns([3, 1])
+            with col_a:
+                st.caption(f"✅ {cp['task']}")
+            with col_b:
+                if st.button("↩️", key=f"rb_{cp['task']}", help="Geri dön"):
+                    try:
+                        ctx.restore_checkpoint(cp["task"])
+                        st.success(f"↩️ Geri dönüldü!")
                         st.rerun()
+                    except Exception as e:
+                        st.error(f"Hata: {e}")
+    else:
+        st.caption("Henüz checkpoint yok.")
 
-        # Mevcut dosya önizleme
-        st.divider()
-        with st.expander("👁️ Mevcut dosya içeriği", expanded=False):
-            st.code(current_content, language=lang)
+# ─── SAĞ PANEL ───
+with right_col:
+    st.markdown("### 🖥️ LLM Çıktısı")
 
-    # ── Tab 2: Direkt Düzenleme ──
-    with tab2:
-        st.caption(
-            "Direkt düzenlediğinizde MEMORY.md'ye not düşülür, LLM bu dosyaya bir daha dokunmaz."
+    btn_col1, btn_col2, btn_col3 = st.columns(3)
+    with btn_col1:
+        start_btn = st.button(
+            "▶️ Başlat",
+            type="primary",
+            use_container_width=True,
+            disabled=st.session_state.get("coding_running", False),
+        )
+    with btn_col2:
+        stop_btn = st.button(
+            "⏹️ Durdur",
+            use_container_width=True,
+            disabled=not st.session_state.get("coding_running", False),
+        )
+    with btn_col3:
+        if st.button("✏️ Düzenle →", use_container_width=True):
+            st.switch_page("pages/4_editor.py")
+
+    st.divider()
+
+    output_area = st.empty()
+    status_area = st.empty()
+
+    if stop_btn:
+        st.session_state.stop_requested = True
+
+    # ─── KODLAMA DÖNGÜSÜ ───
+    if start_btn and not st.session_state.get("coding_running", False):
+        st.session_state.coding_running = True
+        st.session_state.coding_done = False
+        st.session_state.stop_requested = False
+
+        coder_client = create_client(cfg, role="coder")
+
+        if not coder_client.is_alive():
+            st.session_state.coding_running = False
+            status_area.error(f"❌ {cfg['backend']} bağlantısı kurulamadı.")
+            st.stop()
+
+        agent = CoderAgent(
+            client=coder_client,
+            context_manager=ctx,
+            project_path=project_path,
+            approval_mode=approval_mode,
         )
 
-        edited_content = st.text_area(
-            "Dosya içeriği",
-            value=current_content,
-            height=500,
-            label_visibility="collapsed",
-            key=f"direct_edit_{selected_file}",
-        )
+        live_output = ""
+        runner = agent.run()
 
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            save_btn = st.button(
-                "💾 Kaydet",
-                type="primary",
-                disabled=(edited_content == current_content),
-                use_container_width=True,
-            )
+        try:
+            event = next(runner)
 
-        if save_btn and edited_content != current_content:
-            coder_client = create_client(cfg, role="coder")
-            editor = EditorAgent(coder_client, ctx, project_path)
-            result = editor.apply_manual_edit(
-                selected_file, edited_content, current_content
-            )
+            while True:
+                if st.session_state.get("stop_requested", False):
+                    agent.stop()
 
-            if result["success"]:
-                d = result["diff_summary"]
-                st.success(
-                    f"✅ Kaydedildi — +{d['added']}/-{d['removed']} satır. MEMORY.md güncellendi."
-                )
-                with st.expander("📋 Diff"):
-                    st.code(result["diff"], language="diff")
-                st.rerun()
-            else:
-                st.error(f"❌ Kaydetme hatası: {result['error']}")
+                etype = event.get("type", "")
+                task = event.get("task", "")
+                data = event.get("data", {})
+
+                if etype == "session_start":
+                    status_area.info(f"🚀 Kodlama başlıyor — {data['total']} görev")
+
+                elif etype == "task_start":
+                    live_output = ""
+                    status_area.info(
+                        f"⚡ [{data['index']}/{data['total']}] **{task}** işleniyor..."
+                    )
+
+                elif etype == "token":
+                    live_output += data["token"]
+                    output_area.code(live_output[-3000:], language="python")
+
+                elif etype == "syntax_error":
+                    status_area.warning(
+                        f"⚠️ Syntax hatası: `{data['file']}` — Deneme {data['attempt']}/2"
+                    )
+
+                elif etype == "retry":
+                    status_area.warning(f"🔄 Düzeltiliyor ({data['attempt']}/3)...")
+
+                elif etype == "syntax_failed":
+                    status_area.error(f"❌ {data['message']}")
+
+                elif etype == "task_done":
+                    files_str = ", ".join(f"`{f}`" for f in data["files"])
+                    deps_str = (
+                        f" | 📦 {', '.join(data['deps'])}" if data["deps"] else ""
+                    )
+                    status_area.success(f"✅ **{task}** — {files_str}{deps_str}")
+                    live_output = ""
+                    output_area.empty()
+
+                elif etype == "error":
+                    status_area.error(f"❌ Hata ({task}): {data['error']}")
+
+                elif etype == "stopped":
+                    status_area.warning("⏹️ Durduruldu.")
+                    st.session_state.coding_running = False
+                    break
+
+                elif etype == "session_done":
+                    st.session_state.coding_done = True
+                    st.session_state.coding_running = False
+                    st.rerun()  # Tamamlanma ekranını göster
+                    break
+
+                elif (
+                    etype == "approval_needed" and data.get("action") == "approve_task"
+                ):
+                    status_area.warning(f"✋ **{task}** onay bekliyor...")
+                    with output_area.container():
+                        st.markdown(f"#### ✋ Onay: `{task}`")
+                        for f in data.get("files", []):
+                            fpath = project_path / f
+                            if fpath.exists():
+                                with st.expander(f"📄 {f}"):
+                                    st.code(
+                                        fpath.read_text(encoding="utf-8"),
+                                        language=f.split(".")[-1],
+                                    )
+                        if data.get("deps"):
+                            st.info(f"📦 {', '.join(data['deps'])}")
+                        c1, c2, c3 = st.columns(3)
+                        if c1.button("✅ Onayla", type="primary", key=f"ap_{task}"):
+                            pass
+                        if c3.button("⏭️ Atla", key=f"sk_{task}"):
+                            st.session_state.skip_task = True
+
+                # Generator ilerlet
+                try:
+                    approval = (
+                        "skip" if st.session_state.get("skip_task") else "approve"
+                    )
+                    st.session_state.skip_task = False
+                    if etype == "waiting_approval":
+                        event = runner.send(approval)
+                    else:
+                        event = next(runner)
+                except StopIteration:
+                    st.session_state.coding_running = False
+                    break
+
+        except Exception as e:
+            status_area.error(f"❌ Beklenmeyen hata: {e}")
+            import traceback
+
+            output_area.code(traceback.format_exc())
+            st.session_state.coding_running = False
