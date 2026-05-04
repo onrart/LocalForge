@@ -256,3 +256,40 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     )
     return {"access_token": token, "token_type": "bearer"}
 ```
+
+### Zorunlu Import Kontrol Listesi
+
+Her dosyayı yazmadan önce şu import'ların eksiksiz olduğunu kontrol et:
+
+**models.py yazıyorsan:**
+```python
+from datetime import datetime          # datetime.utcnow için ZORUNLU
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
+from sqlalchemy.orm import relationship
+from src.database import Base
+```
+
+**router.py yazıyorsan (auth):**
+```python
+from src.auth.schemas import UserCreate, UserLogin, UserResponse, Token  # UserLogin UNUTMA
+from src.auth.service import AuthService
+from src.database import get_db
+```
+
+**router.py yazıyorsan (diger moduller):**
+```python
+from src.{modul}.schemas import {Model}Create, {Model}Response, {Model}Update
+from src.{modul}.service import {Model}Service
+from src.database import get_db
+from src.auth.models import User  # Kullanici bazli islemler icin
+```
+
+**service.py yazıyorsan:**
+```python
+from sqlalchemy.orm import Session
+from src.{modul}.models import {Model}
+from src.{modul}.schemas import {Model}Create, {Model}Update
+```
+
+Bu import'lardan herhangi biri eksikse kod CALISMAZINMA.
+Yazdigini dosyada kullanilan her sembol mutlaka import edilmeli.

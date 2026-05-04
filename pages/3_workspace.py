@@ -348,39 +348,46 @@ with right_col:
                     st.rerun()
                     break
 
-                elif (
-                    etype == "approval_needed" and data.get("action") == "approve_task"
-                ):
+                elif etype == "approval_needed":
+                    # Onay modu: kullanıcıya göster, onay bekle
                     status_area.warning(f"✋ **{task}** onay bekliyor...")
                     with output_area.container():
-                        st.markdown(f"#### ✋ Onay: `{task}`")
+                        st.markdown(f"#### ✋ Onay Gerekiyor: `{task}`")
                         for f in data.get("files", []):
                             fpath = project_path / f
                             if fpath.exists():
                                 with st.expander(f"📄 {f}"):
+                                    ext = f.split(".")[-1]
                                     st.code(
-                                        fpath.read_text(encoding="utf-8"),
-                                        language=f.split(".")[-1],
+                                        fpath.read_text(encoding="utf-8"), language=ext
                                     )
                         if data.get("deps"):
-                            st.info(f"📦 {', '.join(data['deps'])}")
-                        c1, c2, c3 = st.columns(3)
-                        if c1.button("✅ Onayla", type="primary", key=f"ap_{task}"):
-                            pass
-                        if c3.button("⏭️ Atla", key=f"sk_{task}"):
-                            st.session_state.skip_task = True
+                            st.info(f"📦 Eklenen paketler: {', '.join(data['deps'])}")
+
+                        c1, c2 = st.columns(2)
+                        if c1.button(
+                            "✅ Onayla ve Devam Et",
+                            type="primary",
+                            key=f"ap_{task}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.approval_given = True
+                            st.rerun()
+                        if c2.button(
+                            "⏹️ Durdur", key=f"stop_{task}", use_container_width=True
+                        ):
+                            agent.stop()
+                            st.session_state.coding_running = False
+
+                    # Onay verilmeden döngüyü durdur
+                    if not st.session_state.get("approval_given"):
+                        break
+                    st.session_state.approval_given = False
+                    output_area.empty()
 
                 # Generator ilerlet
                 try:
-                    approval = (
-                        "skip" if st.session_state.get("skip_task") else "approve"
-                    )
-                    st.session_state.skip_task = False
-                    event = (
-                        runner.send(approval)
-                        if etype == "waiting_approval"
-                        else next(runner)
-                    )
+                    event = next(runner)
                 except StopIteration:
                     st.session_state.coding_running = False
                     break
