@@ -155,6 +155,120 @@ class DebuggerAgent:
             },
         }
 
+    def _fix_missing_module(self, failure: TestFailure) -> Generator[dict, None, bool]:
+        """
+        ModuleNotFoundError: No module named 'src.cli' gibi eksik modulleri olusturur.
+        Test dosyasina bakarak eksik modulu LLM ile yazar.
+        """
+        import re
+
+        yield {"type": "fix_token", "data": {"token": "Eksik modul olusturuluyor...\n"}}
+
+        # Hata mesajindan eksik modulu cikart: No module named 'src.cli'
+        mod_match = re.search(r"No module named '([^']+)'", failure.error_msg)
+        if not mod_match:
+            return False
+
+        module_name = mod_match.group(1)  # ornek: src.cli
+        # Modul yolunu dosya yoluna cevir: src.cli -> src/cli.py
+        module_file = module_name.replace(".", "/") + ".py"
+        target_path = self.project_path / module_file
+
+        # Test dosyasini oku - hangi fonksiyonlarin beklendigi anlamak icin
+        test_path = self.project_path / failure.file
+        test_content = ""
+        if test_path.exists():
+            try:
+                test_content = test_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+
+        # PROJECT.md ve MEMORY.md bağlamı
+        project = self.ctx.read_file("PROJECT.md")
+        memory = self.ctx.read_file("MEMORY.md")
+
+        # Test dosyası click kullanıyor mu? requirements.txt'e ekle
+        req_path = self.project_path / "requirements.txt"
+        if "click" in test_content and req_path.exists():
+            req_content = req_path.read_text(encoding="utf-8")
+            if "click" not in req_content:
+                req_path.write_text(
+                    req_content.rstrip() + "\nclick\npytest\n", encoding="utf-8"
+                )
+
+        user_message = f"""Test dosyasi mevcut olmayan bir modulu import etmeye calisiyor.
+
+HATA: {failure.error_msg}
+
+OLUSTURULMASI GEREKEN DOSYA: {module_file}
+
+TEST DOSYASI ({failure.file}) - HANGI FONKSIYONLARI BEKLIYOR:
+```python
+{test_content[:1000] if test_content else "Bulunamadi"}
+```
+
+PROJE BILGISI:
+{project[:300]}
+
+YAPILACAKLAR:
+1. Test dosyasinin import ettigi tum fonksiyon/siniflari bul
+2. {module_file} dosyasini bu fonksiyonlarla olustur
+3. Test click.testing.CliRunner kullaniyorsa → click CLI yaz
+4. Saf Python kullan, SQLAlchemy veya FastAPI KULLANMA
+5. Dosyayi # Dosya: {module_file} formatinda ver
+
+CLICK CLI ORNEGI (test click kullaniyorsa):
+```python
+# Dosya: src/cli.py
+import click
+from src.utils.text_utils import word_count, char_count
+
+@click.group()
+def main():
+    pass
+
+@main.command()
+@click.argument("text")
+def word_count_cmd(text):
+    click.echo(word_count(text))
+
+if __name__ == "__main__":
+    main()
+```"""
+
+        full_response = ""
+        for token in self.client.stream(
+            system_prompt=self.system_prompt,
+            user_message=user_message,
+            max_tokens=1024,
+            temperature=0.1,
+        ):
+            full_response += token
+            yield {"type": "fix_token", "data": {"token": token}}
+
+        from core.file_writer import parse_llm_output, write_files
+
+        parsed = parse_llm_output(full_response)
+        if not parsed:
+            return False
+
+        # Önce write_files dene
+        session = write_files(parsed, self.project_path)
+        if session.success_count > 0:
+            return True
+
+        # write_files başarısız olduysa direkt yaz
+        written = 0
+        for pf in parsed:
+            try:
+                file_path = self.project_path / pf.path
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text(pf.content, encoding="utf-8")
+                written += 1
+            except Exception:
+                pass
+        return written > 0
+
     def _fix_missing_database_import(
         self, failure: TestFailure
     ) -> Generator[dict, None, bool]:
@@ -320,7 +434,19 @@ YAPILACAKLAR:
             return False
 
         session = write_files(parsed, self.project_path)
-        return session.success_count > 0
+        if session.success_count > 0:
+            return True
+
+        written = 0
+        for pf in parsed:
+            try:
+                file_path = self.project_path / pf.path
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text(pf.content, encoding="utf-8")
+                written += 1
+            except Exception:
+                pass
+        return written > 0
 
     def _fix_failure(self, failure: TestFailure) -> Generator[dict, None, bool]:
         """Tek bir test hatasını LLM ile düzeltir."""
@@ -331,6 +457,11 @@ YAPILACAKLAR:
             and "src.database" in failure.error_msg
         ):
             result = yield from self._fix_missing_database_import(failure)
+            return result
+
+        # ModuleNotFoundError: src.cli gibi eksik modül → dosyayı oluştur
+        if failure.error_type == "ModuleNotFoundError":
+            result = yield from self._fix_missing_module(failure)
             return result
 
         # ImportError: cannot import name 'func' → kaynak dosyaya eksik fonksiyon ekle
@@ -413,4 +544,16 @@ Dosyanın tamamını # Dosya: {rel_path} formatında ver."""
             return False
 
         session = write_files(parsed_files, self.project_path)
-        return session.success_count > 0
+        if session.success_count > 0:
+            return True
+
+        written = 0
+        for pf in parsed_files:
+            try:
+                file_path = self.project_path / pf.path
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                file_path.write_text(pf.content, encoding="utf-8")
+                written += 1
+            except Exception:
+                pass
+        return written > 0
