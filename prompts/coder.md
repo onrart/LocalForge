@@ -218,3 +218,41 @@ Her dosya KENDİ kod bloğu içinde olmalı. Asla iki dosyayı aynı bloğa yazm
 ...schemas kodu...
 ```
 ```
+
+### Task / Todo Modeli Zorunlu Alanlar
+Bir görev/task modeli yazarken su alanlari MUTLAKA ekle:
+
+```python
+class Task(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(20), default="pending")     # pending, in_progress, done
+    priority = Column(String(10), default="medium")     # low, medium, high
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+### JWT Auth Router Zorunlu Format
+Auth router JWT token uretmeli:
+
+```python
+from jose import jwt
+from datetime import datetime, timedelta
+
+SECRET_KEY = "change-me"
+ALGORITHM = "HS256"
+
+@router.post("/login", response_model=Token)
+def login(data: UserLogin, db: Session = Depends(get_db)):
+    user = AuthService(db).authenticate(data.username, data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Gecersiz kimlik bilgileri")
+    token = jwt.encode(
+        {"sub": str(user.id), "exp": datetime.utcnow() + timedelta(hours=24)},
+        SECRET_KEY, algorithm=ALGORITHM
+    )
+    return {"access_token": token, "token_type": "bearer"}
+```

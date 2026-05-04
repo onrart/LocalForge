@@ -84,6 +84,10 @@ def init_session_state(st) -> None:
         ("coding_running", False),
         ("stop_requested", False),
         ("skip_task", False),
+        ("template_accepted", None),
+        ("collection_step", 1),
+        ("requirements", None),
+        ("system_info", None),
     ]:
         if key not in st.session_state:
             st.session_state[key] = default

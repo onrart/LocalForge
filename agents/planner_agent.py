@@ -247,7 +247,6 @@ Yanıtını ===ARCHITECTURE=== ve ===TASKS=== ayraçlarıyla böl."""
         Ayrı bir LLM çağrısı yapmadan, architecture'dan çıkarım yapar.
         """
         architecture = self.ctx.read_file("ARCHITECTURE.md")
-        tasks = self.ctx.read_file("TASKS.md")
 
         # Görev sırasını bul
         all_tasks = self.ctx.get_all_tasks()
@@ -256,18 +255,48 @@ Yanıtını ===ARCHITECTURE=== ve ===TASKS=== ayraçlarıyla böl."""
         )
         total = len(all_tasks)
 
+        # İskelet görevi için requirements.txt içeriğini zorunlu inject et
+        requirements_hint = ""
+        task_lower = task_name.lower()
+        if "iskelet" in task_lower or "proje_iskelet" in task_lower or task_index == 0:
+            req_content = self.ctx.read_file("REQUIREMENTS.md")
+            is_python = any(
+                kw in req_content.lower()
+                for kw in ["fastapi", "python", "sqlalchemy", "flask", "django"]
+            )
+            if is_python:
+                requirements_hint = """
+### ZORUNLU: requirements.txt İçeriği
+Bu görevi yaparken requirements.txt dosyasını şu paketlerle oluştur:
+
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+pytest
+httpx
+
+Bu listeyi EKSİK bırakma. requirements.txt bu pakerleri içermeli.
+"""
+
         return f"""## Görev: {task_name}
 ### Sıra: {task_index + 1} / {total}
 
 ### Mimari Bağlam
-{architecture[:500]}...
-
+{architecture[:600]}
+{requirements_hint}
 ### Bu Görevde Yapılacaklar
-Görev adından anlaşıldığı üzere `{task_name}` ile ilgili dosyaları üret.
+`{task_name}` ile ilgili dosyaları üret.
 Mimari kararlara ve MEMORY.md'deki pattern'lere uy.
 
 ### Dikkat Edilecekler
 - Önceki görevlerde oluşturulan dosyaları import edebilirsin (PROGRESS.md'ye bak)
 - Yeni bir bağımlılık ekliyorsan requirements.txt'e de ekle
 - Dosya isimleri ve klasör yapısı ARCHITECTURE.md ile tutarlı olmalı
+- Her dosyayı ayrı kod bloğunda yaz (# Dosya: yol formatında)
 """
