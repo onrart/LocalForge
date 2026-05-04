@@ -129,11 +129,14 @@ class CoderAgent:
                     },
                 }
 
+        completed_count = len(self.ctx.get_all_tasks()) - len(
+            self.ctx.get_pending_tasks()
+        )
         yield {
             "type": "session_done",
             "task": "",
             "data": {
-                "completed": len(pending),
+                "completed": completed_count,
             },
         }
 
@@ -158,6 +161,19 @@ class CoderAgent:
             parsed_files = parse_llm_output(full_response)
 
             if not parsed_files:
+                # LLM beklenen formatta üretmedi — response'u loglayalım
+                preview = (
+                    full_response[:200].replace("\n", " ")
+                    if full_response
+                    else "(boş yanıt)"
+                )
+                yield {
+                    "type": "error",
+                    "task": task_name,
+                    "data": {
+                        "error": f"Format hatası: LLM '# Dosya: yol' bloğu üretmedi. Yanıt önizleme: {preview}"
+                    },
+                }
                 if attempt < MAX_SYNTAX_RETRIES:
                     yield {
                         "type": "retry",
@@ -165,14 +181,18 @@ class CoderAgent:
                         "data": {"attempt": attempt + 2},
                     }
                     user_message = (
-                        f"{user_message}\n\nÖNCEKİ YANIT HATALI: Dosya bloğu bulunamadı.\n"
-                        f"'# Dosya: yol' formatında, her dosyayı ayrı ```python bloğunda yaz."
+                        "ÖNEMLI: Yanıtın SADECE şu formattan oluşmalı, başka hiçbir şey yazma:\n\n"
+                        "# Dosya: src/utils.py\n"
+                        "```python\n"
+                        "... kod ...\n"
+                        "```\n\n"
+                        f"Şu görevi kodla: **{task_name}**\n\n{self.ctx.build_context(role='coder')}"
                     )
                     continue
                 return TaskResult(
                     task_name=task_name,
                     success=False,
-                    error="LLM dosya bloğu üretmedi.",
+                    error=f"LLM 3 denemede de dosya bloğu üretmedi. Son yanıt: {preview}",
                 )
 
             # Syntax doğrulama

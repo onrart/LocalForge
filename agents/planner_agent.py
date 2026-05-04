@@ -82,27 +82,47 @@ def _validate_tasks_md(tasks_md: str, requirements_text: str = "") -> str:
     if not has_header:
         result.insert(0, "## Görevler\n")
 
-    # Python backend projeleri için database görevi zorunlu kontrolü
+    # SADECE web framework + veritabanı olan projelerde database görevi ekle
     req_lower = requirements_text.lower()
-    is_python_backend = any(
+
+    # Hem web framework HEM veritabanı olmalı
+    has_web_framework = any(
         kw in req_lower
         for kw in [
             "fastapi",
             "flask",
             "django",
-            "python",
+        ]
+    )
+    has_database_keyword = any(
+        kw in req_lower
+        for kw in [
             "sqlalchemy",
             "postgresql",
             "sqlite",
             "mysql",
+            "mongodb",
+            "veritaban",
+            "database",
+        ]
+    )
+    # "Yok" veya "yok" geçiyorsa veritabanı yok demektir
+    database_is_none = any(
+        kw in req_lower
+        for kw in [
+            "veritabanı: yok",
+            "veritabani: yok",
+            "database: yok",
+            "no database",
+            "no db",
         ]
     )
 
-    if is_python_backend:
-        has_database = any(
+    if has_web_framework and has_database_keyword and not database_is_none:
+        has_database_task = any(
             "veritaban" in t or "database" in t or "db" in t for t in task_names
         )
-        if not has_database:
+        if not has_database_task:
             db_task = "- [ ] 02_veritabani            # src/database.py - SQLAlchemy engine, Base, get_db"
             insert_idx = next(
                 (i for i, l in enumerate(result) if l.strip().startswith("- [ ]")),
@@ -284,12 +304,30 @@ httpx
 Bu listeyi EKSİK bırakma. requirements.txt bu pakerleri içermeli.
 """
 
+        # DB yok uyarısı
+        req_content = self.ctx.read_file("REQUIREMENTS.md")
+        db_warning = ""
+        if any(
+            kw in req_content.lower()
+            for kw in ["veritabanı: yok", "veritabani: yok", "database: yok", "yok"]
+        ):
+            if "database" in req_content.lower() or "veritaban" in req_content.lower():
+                db_warning = """
+### ⚠️ KRİTİK UYARI: VERİTABANI YOK
+Bu projede VERİTABANI KULLANILMIYOR.
+- database.py YAZMA
+- models.py YAZMA (SQLAlchemy modeli)
+- Base, engine, SessionLocal KULLANMA
+- from src.database import ... YAZMA
+Saf Python fonksiyonları yaz, ORM kullanma.
+"""
+
         return f"""## Görev: {task_name}
 ### Sıra: {task_index + 1} / {total}
 
 ### Mimari Bağlam
 {architecture[:600]}
-{requirements_hint}
+{requirements_hint}{db_warning}
 ### Bu Görevde Yapılacaklar
 `{task_name}` ile ilgili dosyaları üret.
 Mimari kararlara ve MEMORY.md'deki pattern'lere uy.
@@ -299,4 +337,5 @@ Mimari kararlara ve MEMORY.md'deki pattern'lere uy.
 - Yeni bir bağımlılık ekliyorsan requirements.txt'e de ekle
 - Dosya isimleri ve klasör yapısı ARCHITECTURE.md ile tutarlı olmalı
 - Her dosyayı ayrı kod bloğunda yaz (# Dosya: yol formatında)
+- Test dosyaları MUTLAKA test_ öneki ile başlamalı (test_utils.py, test_cli.py)
 """

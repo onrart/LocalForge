@@ -155,8 +155,191 @@ class DebuggerAgent:
             },
         }
 
+    def _fix_missing_database_import(
+        self, failure: TestFailure
+    ) -> Generator[dict, None, bool]:
+        """
+        'No module named src.database' hatasını çözer.
+        models.py'daki SQLAlchemy importlarını temizler, saf Python sınıfına dönüştürür.
+        """
+        yield {
+            "type": "fix_token",
+            "data": {"token": "ORM importlari temizleniyor...\n"},
+        }
+
+        # Hangi dosyada hata var?
+        source_path = self.project_path / failure.source_file
+        if not source_path.exists():
+            # models.py'ı ara
+            matches = list(self.project_path.rglob("models.py"))
+            if matches:
+                source_path = matches[0]
+            else:
+                return False
+
+        try:
+            content = source_path.read_text(encoding="utf-8")
+        except Exception:
+            return False
+
+        rel_path = str(source_path.relative_to(self.project_path))
+        memory = self.ctx.read_file("MEMORY.md")
+
+        user_message = f"""Bu dosyada SQLAlchemy/database import hatası var.
+Proje veritabanı kullanmıyor — saf Python sınıfına dönüştür.
+
+HATA: {failure.error_msg}
+
+MEVCUT DOSYA ({rel_path}):
+```python
+{content}
+```
+
+YAPILACAKLAR:
+1. 'from src.database import Base' satırını SİL
+2. SQLAlchemy Column, Integer vb. importları SİL  
+3. class'ı Base yerine object'ten türet: class MyClass:
+4. Column tanımlarını normal attribute'a çevir: self.field = None
+5. Dosyanın tamamını # Dosya: {rel_path} formatında ver
+
+ÖRNEK:
+# Dosya: src/text_utils/models.py
+```python
+class Text:
+    def __init__(self, content: str = ""):
+        self.content = content
+        self.word_count = 0
+```"""
+
+        full_response = ""
+        for token in self.client.stream(
+            system_prompt=self.system_prompt,
+            user_message=user_message,
+            max_tokens=1024,
+            temperature=0.1,
+        ):
+            full_response += token
+            yield {"type": "fix_token", "data": {"token": token}}
+
+        from core.file_writer import parse_llm_output, write_files
+
+        parsed = parse_llm_output(full_response)
+        if not parsed:
+            return False
+
+        session = write_files(parsed, self.project_path)
+        return session.success_count > 0
+
+    def _fix_missing_function(
+        self, failure: TestFailure
+    ) -> Generator[dict, None, bool]:
+        """
+        'cannot import name X from Y' hatasini cozer.
+        Kaynak dosyaya eksik fonksiyonu/sinifi ekler.
+        """
+        import re
+
+        yield {
+            "type": "fix_token",
+            "data": {"token": "Eksik fonksiyonlar ekleniyor...\n"},
+        }
+
+        # Hata mesajindan eksik ismi cikart: cannot import name 'word_count'
+        name_match = re.search(r"cannot import name '([^']+)'", failure.error_msg)
+        missing_name = name_match.group(1) if name_match else ""
+
+        # Hata mesajindan kaynak modulu cikart: from 'src.utils.text_utils'
+        module_match = re.search(r"from '([^']+)'", failure.error_msg)
+        module_path = module_match.group(1) if module_match else ""
+
+        # Modulu dosya yoluna cevir: src.utils.text_utils -> src/utils/text_utils.py
+        if module_path:
+            source_file = module_path.replace(".", "/") + ".py"
+            source_path = self.project_path / source_file
+        else:
+            source_path = self.project_path / failure.source_file
+
+        if not source_path.exists():
+            matches = list(self.project_path.rglob("*.py"))
+            matches = [m for m in matches if "test" not in m.name.lower()]
+            if matches:
+                source_path = matches[0]
+            else:
+                return False
+
+        try:
+            source_content = source_path.read_text(encoding="utf-8")
+        except Exception:
+            return False
+
+        # Test dosyasini oku - hangi fonksiyonlarin gerektigini anlamak icin
+        test_path = self.project_path / failure.file
+        test_content = ""
+        if test_path.exists():
+            try:
+                test_content = test_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+
+        rel_path = str(source_path.relative_to(self.project_path))
+
+        user_message = f"""Test dosyasi kaynak dosyadan olmayan bir isim import etmeye calisiyor.
+
+HATA: {failure.error_msg}
+
+KAYNAK DOSYA ({rel_path}) - EKSIK FONKSIYON BURAYA EKLENECEK:
+```python
+{source_content}
+```
+
+TEST DOSYASI ({failure.file}) - HANGI FONKSIYONLARI BEKLIYOR:
+```python
+{test_content[:800] if test_content else "Bulunamadi"}
+```
+
+YAPILACAKLAR:
+1. Test dosyasinin hangi fonksiyonlari/siniflari import ettigini bul
+2. Bu fonksiyonlarin hepsini kaynak dosyaya ekle
+3. Mevcut kodu SILME, sadece eksik fonksiyonlari EKLE
+4. Dosyanin tamamini # Dosya: {rel_path} formatinda ver"""
+
+        full_response = ""
+        for token in self.client.stream(
+            system_prompt=self.system_prompt,
+            user_message=user_message,
+            max_tokens=2048,
+            temperature=0.1,
+        ):
+            full_response += token
+            yield {"type": "fix_token", "data": {"token": token}}
+
+        from core.file_writer import parse_llm_output, write_files
+
+        parsed = parse_llm_output(full_response)
+        if not parsed:
+            return False
+
+        session = write_files(parsed, self.project_path)
+        return session.success_count > 0
+
     def _fix_failure(self, failure: TestFailure) -> Generator[dict, None, bool]:
         """Tek bir test hatasını LLM ile düzeltir."""
+
+        # ModuleNotFoundError: src.database gibi olmayan modül → import'u temizle
+        if (
+            failure.error_type == "ModuleNotFoundError"
+            and "src.database" in failure.error_msg
+        ):
+            result = yield from self._fix_missing_database_import(failure)
+            return result
+
+        # ImportError: cannot import name 'func' → kaynak dosyaya eksik fonksiyon ekle
+        if (
+            failure.error_type == "ImportError"
+            and "cannot import name" in failure.error_msg
+        ):
+            result = yield from self._fix_missing_function(failure)
+            return result
 
         # Hatalı kaynak dosyayı oku
         source_path = self.project_path / failure.source_file

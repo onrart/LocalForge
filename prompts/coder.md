@@ -302,3 +302,20 @@ from datetime import datetime  # BU SATIR OLMADAN datetime.utcnow CALISMAZINMA
 ```
 
 Kontrol: Kodunda `datetime.utcnow` veya `datetime.now` varsa yukarıdaki import MUTLAKA olmalı.
+
+### Test Dosyası Adlandırma (KESİN KURAL)
+Test dosyaları MUTLAKA `test_` öneki ile başlamalı:
+
+```
+# ✅ DOĞRU
+# Dosya: tests/test_utils.py
+# Dosya: src/tests/test_text_utils.py
+# Dosya: test_main.py
+
+# ❌ YANLIŞ
+# Dosya: utils_test.py        (pytest bulamaz)
+# Dosya: tests/utils.py       (pytest bulamaz)
+# Dosya: tests/text_utils.py  (pytest bulamaz)
+```
+
+Test dosyası görevi geldiğinde dosya adı MUTLAKA `test_` ile başlamalı.

@@ -438,8 +438,16 @@ with right_col:
                     break
 
                 elif etype == "session_done":
-                    persist_coding_done(st)
-                    st.rerun()
+                    completed = data.get("completed", 0)
+                    if completed > 0:
+                        persist_coding_done(st)
+                        st.rerun()
+                    else:
+                        status_area.error(
+                            "❌ Hiçbir görev tamamlanamadı. "
+                            "LLM bağlantısını ve model ayarlarını kontrol edin."
+                        )
+                        st.session_state.coding_running = False
                     break
 
                 elif etype == "approval_needed":
