@@ -16,15 +16,18 @@ st.set_page_config(
 # ─── Config yükle ───
 CONFIG_PATH = Path(__file__).parent / "config.json"
 
+
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+
 def save_config(config: dict):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
+
 
 # Session state başlat
 if "config" not in st.session_state:
@@ -78,28 +81,28 @@ with col1:
     st.markdown("### 1️⃣ Kurulum")
     st.caption("Sistemi tara, LLM seç")
     if st.button("Kuruluma Git →", use_container_width=True, type="primary"):
-        st.switch_page("ui/pages/1_setup.py")
+        st.switch_page("pages/1_setup.py")
 
 with col2:
     st.markdown("### 2️⃣ Proje")
     st.caption("Gereksinimler & şablon")
     disabled = not (cfg.get("planner_model") and cfg.get("coder_model"))
     if st.button("Proje Tanımla →", use_container_width=True, disabled=disabled):
-        st.switch_page("ui/pages/2_requirements.py")
+        st.switch_page("pages/2_requirements.py")
 
 with col3:
     st.markdown("### 3️⃣ Kodla")
     st.caption("Ajan otomatik yazar")
     disabled = not st.session_state.requirements
     if st.button("Kodlamayı Başlat →", use_container_width=True, disabled=disabled):
-        st.switch_page("ui/pages/3_workspace.py")
+        st.switch_page("pages/3_workspace.py")
 
 with col4:
     st.markdown("### 4️⃣ Düzenle")
     st.caption("Doğal dil ile revize")
     disabled = not st.session_state.coding_done
     if st.button("Düzenlemeye Git →", use_container_width=True, disabled=disabled):
-        st.switch_page("ui/pages/4_editor.py")
+        st.switch_page("pages/4_editor.py")
 
 st.divider()
 

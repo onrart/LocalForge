@@ -31,16 +31,8 @@ def _parse_response(response: str) -> tuple[str, str]:
     LLM yanıtından ARCHITECTURE ve TASKS içeriklerini ayıklar.
     Returns: (architecture_md, tasks_md)
     """
-    arch_match = re.search(
-        r"===ARCHITECTURE===(.*?)===TASKS===",
-        response,
-        re.DOTALL
-    )
-    tasks_match = re.search(
-        r"===TASKS===(.*?)$",
-        response,
-        re.DOTALL
-    )
+    arch_match = re.search(r"===ARCHITECTURE===(.*?)===TASKS===", response, re.DOTALL)
+    tasks_match = re.search(r"===TASKS===(.*?)$", response, re.DOTALL)
 
     architecture = arch_match.group(1).strip() if arch_match else ""
     tasks = tasks_match.group(1).strip() if tasks_match else ""
@@ -65,30 +57,58 @@ def _generate_default_tasks() -> str:
 """
 
 
-def _validate_tasks_md(tasks_md: str) -> str:
+def _validate_tasks_md(tasks_md: str, requirements_text: str = "") -> str:
     """
     TASKS.md formatını doğrular ve düzeltir.
-    Her satırın doğru formatta olduğunu kontrol eder.
+    Python/FastAPI projeleri için eksik kritik görevleri ekler.
     """
     lines = tasks_md.splitlines()
     result = []
     has_header = False
+    task_names = []
 
     for line in lines:
         stripped = line.strip()
-        # Başlık satırı
         if stripped.startswith("## Görevler"):
             has_header = True
             result.append(stripped)
-        # Görev satırı
         elif stripped.startswith("- [ ]") or stripped.startswith("- [x]"):
             result.append(stripped)
-        # Diğer satırlar (boş veya yorum)
+            name = stripped[5:].strip().split("#")[0].strip().lower()
+            task_names.append(name)
         elif not stripped or stripped.startswith("#"):
             result.append(stripped)
 
     if not has_header:
         result.insert(0, "## Görevler\n")
+
+    # Python backend projeleri için database görevi zorunlu kontrolü
+    req_lower = requirements_text.lower()
+    is_python_backend = any(
+        kw in req_lower
+        for kw in [
+            "fastapi",
+            "flask",
+            "django",
+            "python",
+            "sqlalchemy",
+            "postgresql",
+            "sqlite",
+            "mysql",
+        ]
+    )
+
+    if is_python_backend:
+        has_database = any(
+            "veritaban" in t or "database" in t or "db" in t for t in task_names
+        )
+        if not has_database:
+            db_task = "- [ ] 02_veritabani            # src/database.py - SQLAlchemy engine, Base, get_db"
+            insert_idx = next(
+                (i for i, l in enumerate(result) if l.strip().startswith("- [ ]")),
+                len(result),
+            )
+            result.insert(insert_idx + 1, db_task)
 
     return "\n".join(result)
 
@@ -131,7 +151,7 @@ class PlannerAgent:
             }
 
         architecture, tasks = _parse_response(response.content)
-        tasks = _validate_tasks_md(tasks)
+        tasks = _validate_tasks_md(tasks, requirements.to_summary())
 
         # Context manager'a yaz
         self.ctx.write_architecture(architecture)
@@ -147,7 +167,9 @@ class PlannerAgent:
             "error": "",
         }
 
-    def plan_stream(self, requirements: ProjectRequirements) -> Generator[str, None, None]:
+    def plan_stream(
+        self, requirements: ProjectRequirements
+    ) -> Generator[str, None, None]:
         """
         Streaming planlama. UI'da canlı gösterim için.
         Tam yanıt bittikten sonra dosyalara yazar.
@@ -168,7 +190,7 @@ class PlannerAgent:
 
         # Streaming bitti, parse et ve kaydet
         architecture, tasks = _parse_response(full_response)
-        tasks = _validate_tasks_md(tasks)
+        tasks = _validate_tasks_md(tasks, requirements.to_summary())
 
         self.ctx.write_architecture(architecture)
         self.ctx.write_tasks(tasks)

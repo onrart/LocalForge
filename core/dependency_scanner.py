@@ -9,31 +9,67 @@ import sys
 import re
 from pathlib import Path
 
-
 # Python stdlib modül listesi (3.10+)
 STDLIB_MODULES = sys.stdlib_module_names
 
 # Paket adı farklı olan modüller: import adı → pip adı
 IMPORT_TO_PACKAGE = {
-    "PIL":          "Pillow",
-    "cv2":          "opencv-python",
-    "sklearn":      "scikit-learn",
-    "bs4":          "beautifulsoup4",
-    "dotenv":       "python-dotenv",
-    "jose":         "python-jose",
-    "yaml":         "PyYAML",
-    "psycopg2":     "psycopg2-binary",
-    "pymysql":      "PyMySQL",
-    "dateutil":     "python-dateutil",
-    "serial":       "pyserial",
-    "usb":          "pyusb",
-    "wx":           "wxPython",
+    "PIL": "Pillow",
+    "cv2": "opencv-python",
+    "sklearn": "scikit-learn",
+    "bs4": "beautifulsoup4",
+    "dotenv": "python-dotenv",
+    "jose": "python-jose",
+    "yaml": "PyYAML",
+    "psycopg2": "psycopg2-binary",
+    "pymysql": "PyMySQL",
+    "dateutil": "python-dateutil",
+    "serial": "pyserial",
+    "usb": "pyusb",
+    "wx": "wxPython",
 }
 
 # Yerel modüller — her zaman görmezden gelinir
 IGNORE_MODULES = {
-    "core", "agents", "ui", "prompts", "templates",
-    "localforge", "__future__",
+    # LocalForge iç modülleri
+    "core",
+    "agents",
+    "ui",
+    "prompts",
+    "templates",
+    "localforge",
+    # Proje içi yaygın klasör/modül isimleri
+    "src",
+    "app",
+    "config",
+    "database",
+    "models",
+    "schemas",
+    "routes",
+    "router",
+    "routers",
+    "services",
+    "utils",
+    "helpers",
+    "middleware",
+    "auth",
+    "api",
+    "tests",
+    "test",
+    "migrations",
+    "static",
+    "templates",
+    "views",
+    "controllers",
+    "handlers",
+    "book",
+    "user",
+    "users",
+    "product",
+    "order",
+    "payment",
+    "__future__",
+    "__init__",
 }
 
 
